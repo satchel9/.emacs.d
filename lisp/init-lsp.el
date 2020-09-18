@@ -43,8 +43,12 @@
    ;; Emacs client for the Language Server Protocol
    ;; https://github.com/emacs-lsp/lsp-mode#supported-languages
    (use-package lsp-mode
-     :defines (lsp-clients-python-library-directories lsp-rust-rls-server-command)
-     :commands (lsp-enable-which-key-integration lsp-format-buffer lsp-organize-imports)
+     :defines (lsp-clients-python-library-directories
+               lsp-rust-server)
+     :commands (lsp-enable-which-key-integration
+                lsp-format-buffer
+                lsp-organize-imports
+                lsp-install-server)
      :diminish
      :hook ((prog-mode . (lambda ()
                            (unless (derived-mode-p 'emacs-lisp-mode 'lisp-mode)
@@ -62,31 +66,41 @@
             ([remap xref-find-definitions] . lsp-find-definition)
             ([remap xref-find-references] . lsp-find-references))
      :init
-     ;; @see https://github.com/emacs-lsp/lsp-mode#performance
+     ;; @see https://emacs-lsp.github.io/lsp-mode/page/performance
      (setq read-process-output-max (* 1024 1024)) ;; 1MB
 
      (setq lsp-keymap-prefix "C-c l"
            lsp-keep-workspace-alive nil
-           lsp-prefer-capf t
            lsp-signature-auto-activate nil
+           lsp-modeline-code-actions-enable nil
+           lsp-modeline-diagnostics-enable nil
 
            lsp-enable-file-watchers nil
            lsp-enable-folding nil
+           lsp-enable-semantic-highlighting nil
+           lsp-enable-symbol-highlighting nil
+           lsp-enable-text-document-color nil
+
            lsp-enable-indentation nil
-           lsp-enable-on-type-formatting nil
-           lsp-enable-symbol-highlighting nil)
+           lsp-enable-on-type-formatting nil)
 
      ;; For `lsp-clients'
      (setq lsp-clients-python-library-directories '("/usr/local/" "/usr/"))
-     (unless (executable-find "rls")
-       (setq lsp-rust-rls-server-command '("rustup" "run" "stable" "rls")))
+     (when (executable-find "rust-analyzer")
+       (setq lsp-rust-server 'rust-analyzer))
      :config
      (with-no-warnings
        (defun my-lsp--init-if-visible (func &rest args)
          "Not enabling lsp in `git-timemachine-mode'."
          (unless (bound-and-true-p git-timemachine-mode)
            (apply func args)))
-       (advice-add #'lsp--init-if-visible :around #'my-lsp--init-if-visible)))
+       (advice-add #'lsp--init-if-visible :around #'my-lsp--init-if-visible))
+
+     (defun lsp-update-server ()
+       "Update LSP server."
+       (interactive)
+       ;; Equals to `C-u M-x lsp-install-server'
+       (lsp-install-server t)))
 
    (use-package lsp-ui
      :custom-face
@@ -95,7 +109,9 @@
      ((:title (pretty-hydra-title "LSP UI" 'faicon "rocket")
        :color amaranth :quit-key "q")
       ("Doc"
-       (("d e" (lsp-ui-doc-enable (not lsp-ui-doc-mode))
+       (("d e" (progn
+                 (lsp-ui-doc-enable (not lsp-ui-doc-mode))
+                 (setq lsp-ui-doc-enable (not lsp-ui-doc-enable)))
          "enable" :toggle lsp-ui-doc-mode)
         ("d s" (setq lsp-ui-doc-include-signature (not lsp-ui-doc-include-signature))
          "signature" :toggle lsp-ui-doc-include-signature)
@@ -110,7 +126,9 @@
         ("d w" (setq lsp-ui-doc-alignment 'window)
          "align window" :toggle (eq lsp-ui-doc-alignment 'window)))
        "Sideline"
-       (("s e" (lsp-ui-sideline-enable (not lsp-ui-sideline-mode))
+       (("s e" (progn
+                 (lsp-ui-sideline-enable (not lsp-ui-sideline-mode))
+                 (setq lsp-ui-sideline-enable (not lsp-ui-sideline-enable)))
          "enable" :toggle lsp-ui-sideline-mode)
         ("s h" (setq lsp-ui-sideline-show-hover (not lsp-ui-sideline-show-hover))
          "hover" :toggle lsp-ui-sideline-show-hover)
@@ -141,37 +159,23 @@
             ("M-<f6>" . lsp-ui-hydra/body)
             ("M-RET" . lsp-ui-sideline-apply-code-actions))
      :hook (lsp-mode . lsp-ui-mode)
-     :init (setq lsp-ui-doc-enable t
-                 lsp-ui-doc-use-webkit nil
-                 lsp-ui-doc-delay 0.2
-                 lsp-ui-doc-include-signature t
-                 lsp-ui-doc-position 'at-point
-                 lsp-ui-doc-border (face-foreground 'default)
-                 lsp-eldoc-enable-hover nil ; Disable eldoc displays in minibuffer
-
-                 lsp-ui-sideline-enable t
-                 lsp-ui-sideline-show-hover nil
-                 lsp-ui-sideline-show-diagnostics nil
-                 lsp-ui-sideline-show-code-actions t
+     :init (setq lsp-ui-sideline-show-diagnostics nil
                  lsp-ui-sideline-ignore-duplicate t
-
-                 lsp-ui-imenu-enable t
+                 lsp-ui-doc-position 'at-point
+                 lsp-ui-doc-border (face-foreground 'font-lock-comment-face)
                  lsp-ui-imenu-colors `(,(face-foreground 'font-lock-keyword-face)
                                        ,(face-foreground 'font-lock-string-face)
                                        ,(face-foreground 'font-lock-constant-face)
                                        ,(face-foreground 'font-lock-variable-name-face)))
      :config
-     (add-to-list 'lsp-ui-doc-frame-parameters '(right-fringe . 8))
-
      ;; `C-g'to close doc
      (advice-add #'keyboard-quit :before #'lsp-ui-doc-hide)
 
      ;; Reset `lsp-ui-doc-background' after loading theme
      (add-hook 'after-load-theme-hook
                (lambda ()
-                 (setq lsp-ui-doc-border (face-foreground 'default))
-                 (set-face-background 'lsp-ui-doc-background
-                                      (face-background 'tooltip)))))
+                 (setq lsp-ui-doc-border (face-foreground 'font-lock-comment-face))
+                 (set-face-background 'lsp-ui-doc-background (face-background 'tooltip)))))
 
    ;; Ivy integration
    (use-package lsp-ivy
@@ -180,10 +184,10 @@
             ([remap xref-find-apropos] . lsp-ivy-workspace-symbol)
             ("C-s-." . lsp-ivy-global-workspace-symbol)))
 
-   ;; `treemacs' requires 25.2+, so `dap-mode' and `lsp-treemacs' also requires 25.2+
-   (when emacs/>=25.2p
-     ;; Debug
+   ;; Debug
+   (when emacs/>=26p
      (use-package dap-mode
+       :defines dap-python-executable
        :functions dap-hydra/nil
        :diminish
        :bind (:map lsp-mode-map
@@ -203,15 +207,21 @@
               (php-mode . (lambda () (require 'dap-php)))
               (elixir-mode . (lambda () (require 'dap-elixir)))
               ((js-mode js2-mode) . (lambda () (require 'dap-chrome)))
-              (powershell-mode . (lambda () (require 'dap-pwsh)))))
+              (powershell-mode . (lambda () (require 'dap-pwsh))))
+       :init
+       (setq dap-auto-configure-features '(sessions locals breakpoints expressions controls))
+       (when (executable-find "python3")
+         (setq dap-python-executable "python3"))))
 
-     ;; `lsp-mode' and `treemacs' integration
+   ;; `lsp-mode' and `treemacs' integration
+   (when emacs/>=25.2p
      (use-package lsp-treemacs
        :after lsp-mode
        :bind (:map lsp-mode-map
               ("C-<f8>" . lsp-treemacs-errors-list)
               ("M-<f8>" . lsp-treemacs-symbols)
               ("s-<f8>" . lsp-treemacs-java-deps-list))
+       :init (lsp-treemacs-sync-mode 1)
        :config
        (with-eval-after-load 'ace-window
          (when (boundp 'aw-ignored-buffers)
@@ -389,12 +399,11 @@
 
            (setq lsp-treemacs-theme "centaur-colors")))))
 
-   ;; Microsoft python-language-server support
-   (use-package lsp-python-ms
-     :hook (python-mode . (lambda () (require 'lsp-python-ms)))
-     :init
-     (when (executable-find "python3")
-       (setq lsp-python-ms-python-executable-cmd "python3")))
+   ;; Python: pyright
+   (use-package lsp-pyright
+     :hook (python-mode . (lambda () (require 'lsp-pyright)))
+     :init (when (executable-find "python3")
+             (setq lsp-pyright-python-executable-cmd "python3")))
 
    ;; C/C++/Objective-C support
    (use-package ccls

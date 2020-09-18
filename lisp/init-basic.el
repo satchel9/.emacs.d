@@ -47,7 +47,7 @@
     (setq w32-lwindow-modifier 'super     ; Left Windows key
           w32-apps-modifier 'hyper)       ; Menu/App key
     (w32-register-hot-key [s-t]))
-   ((and sys/macp (eq window-system 'mac))
+   (sys/mac-port-p
     ;; Compatible with Emacs Mac port
     (setq mac-option-modifier 'meta
           mac-command-modifier 'super)
@@ -128,6 +128,7 @@
 (use-package simple
   :ensure nil
   :hook ((after-init . size-indication-mode)
+         (text-mode . visual-line-mode)
          ((prog-mode markdown-mode conf-mode) . enable-trailing-whitespace))
   :init
   (setq column-number-mode t
@@ -150,6 +151,12 @@
   :hook (after-init . display-time-mode)
   :init (setq display-time-24hr-format t
               display-time-day-and-date t))
+
+(when emacs/>=27p
+  (use-package so-long
+    :ensure nil
+    :hook (after-init . global-so-long-mode)
+    :config (setq so-long-threshold 400)))
 
 ;; Mouse & Smooth Scroll
 ;; Scroll one line at a time (less "jumpy" than defaults)

@@ -101,7 +101,8 @@ prepended to the element after the #+HEADER: tag."
                   (if (or (region-active-p) (looking-back "^\s*" 1))
                       (org-hydra/body)
                     (self-insert-command 1)))))
-  :hook ((org-mode . (lambda ()
+  :hook (((org-babel-after-execute org-mode) . org-redisplay-inline-images) ; display image
+         (org-mode . (lambda ()
                        "Beautify org symbols."
                        (setq prettify-symbols-alist centaur-prettify-org-symbols-alist)
                        (prettify-symbols-mode 1)))
@@ -126,7 +127,7 @@ prepended to the element after the #+HEADER: tag."
         org-log-done 'time
         org-catch-invisible-edits 'smart
         org-startup-indented t
-        org-ellipsis (if (char-displayable-p ?🞃) "\t⏷" nil)
+        org-ellipsis (if (char-displayable-p ?⏷) "\t⏷" nil)
         org-pretty-entities nil
         org-hide-emphasis-markers t)
 
@@ -197,6 +198,7 @@ prepended to the element after the #+HEADER: tag."
     :if (executable-find "jupyter")     ; DO NOT remove
     :init (cl-pushnew '(ipython . t) load-language-list))
 
+  ;; Use mermadi-cli: npm install -g @mermaid-js/mermaid-cli
   (use-package ob-mermaid
     :init (cl-pushnew '(mermaid . t) load-language-list))
 
@@ -229,7 +231,7 @@ prepended to the element after the #+HEADER: tag."
     :functions (org-display-inline-images
                 org-remove-inline-images)
     :bind (:map org-mode-map
-           ("C-<f7>" . org-tree-slide-mode)
+           ("s-<f7>" . org-tree-slide-mode)
            :map org-tree-slide-mode-map
            ("<left>" . org-tree-slide-move-previous-tree)
            ("<right>" . org-tree-slide-move-next-tree)
@@ -267,7 +269,24 @@ prepended to the element after the #+HEADER: tag."
             ("C-c n f" . org-roam-find-file)
             ("C-c n g" . org-roam-graph))
            :map org-mode-map
-           (("C-c n i" . org-roam-insert)))))
+           (("C-c n i" . org-roam-insert))
+           (("C-c n I" . org-roam-insert-immediate))))
+
+  (use-package org-roam-server
+    :functions xwidget-buffer xwidget-webkit-current-session
+    :hook (org-roam-server-mode . org-roam-server-browse)
+    :init
+    (defun org-roam-server-browse ()
+      (when org-roam-server-mode
+        (let ((url (format "http://%s:%d" org-roam-server-host org-roam-server-port)))
+          (if (featurep 'xwidget-internal)
+              (progn
+                (xwidget-webkit-browse-url url)
+                (let ((buf (xwidget-buffer (xwidget-webkit-current-session))))
+                  (when (buffer-live-p buf)
+                    (and (eq buf (current-buffer)) (quit-window))
+                    (pop-to-buffer buf))))
+            (browse-url url)))))))
 
 (provide 'init-org)
 

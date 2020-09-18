@@ -162,6 +162,12 @@ If Non-nil, use dashboard, otherwise will restore previous session."
   :group 'centaur
   :type 'boolean)
 
+(defcustom centaur-restore-frame-geometry t
+  "Restore the frame's geometry at startup.
+If Non-nil, save and restore the frame's geometry."
+  :group 'centaur
+  :type 'boolean)
+
 (defcustom centaur-lsp 'lsp-mode
   "Set language server."
   :group 'centaur
@@ -172,11 +178,10 @@ If Non-nil, use dashboard, otherwise will restore previous session."
 
 (defcustom centaur-lsp-format-on-save-ignore-modes '(c-mode c++-mode)
   "The modes that don't auto format and organize imports while saving the buffers.
-
 `prog-mode' means ignoring all derived modes.
 "
   :group 'centaur
-  :type 'list)
+  :type '(repeat (symbol :tag "Major-Mode")))
 
 (defcustom centaur-chinese-calendar nil
   "Use Chinese calendar or not."
@@ -202,7 +207,8 @@ If Non-nil, use dashboard, otherwise will restore previous session."
     ("&&" . ?∧)
     ("||" . ?∨)
     ("not" . ?¬))
-  "Alist of symbol prettifications."
+  "Alist of symbol prettifications.
+Nil to use font supports ligatures."
   :group 'centaur
   :type '(alist :key-type string :value-type (choice character sexp)))
 
@@ -216,11 +222,11 @@ If Non-nil, use dashboard, otherwise will restore previous session."
     ("#+CREATOR:" . ?💁)
     ("#+DATE:" . ?📆)
     ("#+DESCRIPTION:" . ?⸙)
-    ("#+EMAIL:" . ?🖂)
+    ("#+EMAIL:" . ?📧)
     ("#+OPTIONS:" . ?⛭)
     ("#+SETUPFILE:" . ?⛮)
     ("#+TAGS:" . ?🏷)
-    ("#+TITLE:" . ?🕮)
+    ("#+TITLE:" . ?📓)
 
     ("#+BEGIN_SRC" . ?✎)
     ("#+END_SRC" . ?□)

@@ -382,9 +382,7 @@
   ;; Better sorting and filtering
   (use-package prescient
     :commands prescient-persist-mode
-    :init
-    (setq prescient-filter-method '(literal regexp initialism fuzzy))
-    (prescient-persist-mode 1))
+    :init (prescient-persist-mode 1))
 
   (use-package ivy-prescient
     :commands ivy-prescient-re-builder
@@ -415,7 +413,9 @@ This is for use in `ivy-re-builders-alist'."
             (t . ivy-prescient-re-builder))
           ivy-prescient-sort-commands
           '(:not swiper swiper-isearch ivy-switch-buffer
-            counsel-grep counsel-git-grep counsel-ag counsel-imenu
+            lsp-ivy-workspace-symbol ivy-resume ivy--restore-session
+            counsel-grep counsel-git-grep counsel-rg counsel-ag
+            counsel-ack counsel-fzf counsel-pt counsel-imenu
             counsel-yank-pop counsel-recentf counsel-buffer-or-recentf))
 
     (ivy-prescient-mode 1))

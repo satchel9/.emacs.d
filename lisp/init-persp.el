@@ -54,7 +54,7 @@
   (defun persp-save-frame ()
     "Save the current frame parameters to file."
     (interactive)
-    (when persp-mode
+    (when (and (display-graphic-p) centaur-restore-frame-geometry persp-mode)
       (condition-case error
           (with-temp-buffer
             (erase-buffer)
@@ -76,10 +76,16 @@
   (defun persp-load-frame ()
     "Load frame with the previous frame's geometry."
     (interactive)
-    (when persp-mode
+    (when (and (display-graphic-p) centaur-restore-frame-geometry persp-mode)
       (fix-fullscreen-cocoa)
       (when (file-readable-p persp-frame-file)
-        (load persp-frame-file))))
+        (load persp-frame-file)
+
+        ;; Handle multiple monitors gracefully
+        (when (>= (frame-parameter nil 'left) (display-pixel-width))
+          (set-frame-parameter nil 'left 0))
+        (when (>= (frame-parameter nil 'top) (display-pixel-height))
+          (set-frame-parameter nil 'top 0)))))
 
   (with-no-warnings
     ;; Don't save if the sate is not loaded

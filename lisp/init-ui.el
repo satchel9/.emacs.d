@@ -41,7 +41,7 @@
 (setq frame-title-format '("Centaur Emacs - %b")
       icon-title-format frame-title-format)
 
-(when sys/mac-x-p
+(when (and sys/mac-ns-p sys/mac-x-p)
   (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
   (add-to-list 'default-frame-alist '(ns-appearance . dark))
   (add-hook 'after-load-theme-hook
@@ -68,12 +68,10 @@
       (use-package solaire-mode
         :functions persp-load-state-from-file
         :hook (((change-major-mode after-revert ediff-prepare-buffer) . turn-on-solaire-mode)
-               (minibuffer-setup . solaire-mode-in-minibuffer)
-               (after-load-theme . solaire-mode-swap-bg))
+               (minibuffer-setup . solaire-mode-in-minibuffer))
         :init
         (solaire-global-mode 1)
-        (advice-add #'persp-load-state-from-file
-                    :after #'solaire-mode-restore-persp-mode-buffers))
+        (advice-add #'persp-load-state-from-file :after #'solaire-mode-restore-persp-mode-buffers))
 
       (use-package doom-themes
         :custom-face
@@ -98,7 +96,7 @@
   (doom-modeline-minor-modes t)
   (doom-modeline-unicode-fallback t)
   (doom-modeline-mu4e nil)
-  :hook (after-init . doom-modeline-mode)
+  :hook (window-setup . doom-modeline-mode)
   :init
   ;; Prevent flash of unstyled modeline at startup
   (unless after-init-time
@@ -371,6 +369,17 @@
       window-divider-default-right-width 1)
 (add-hook 'window-setup-hook #'window-divider-mode)
 
+;; Easily adjust the font size in all frames
+(use-package default-text-scale
+  :hook (after-init . default-text-scale-mode)
+  :bind (:map default-text-scale-mode-map
+         ("s-=" . default-text-scale-increase)
+         ("s--" . default-text-scale-decrease)
+         ("s-0" . default-text-scale-reset)
+         ("C-s-=" . default-text-scale-increase)
+         ("C-s--" . default-text-scale-decrease)
+         ("C-s-0" . default-text-scale-reset)))
+
 ;; Use fixed pitch where it's sensible
 (use-package mixed-pitch
   :diminish)
@@ -385,6 +394,51 @@
 ;; Don't use GTK+ tooltip
 (when (boundp 'x-gtk-use-system-tooltips)
   (setq x-gtk-use-system-tooltips nil))
+
+;; When `centaur-prettify-symbols-alist' is `nil' use font supported ligatures
+(use-package composite
+  :ensure nil
+  :unless centaur-prettify-symbols-alist
+  :init (defvar composition-ligature-table (make-char-table nil))
+  :hook (((prog-mode conf-mode nxml-mode markdown-mode help-mode)
+          . (lambda () (setq-local composition-function-table composition-ligature-table))))
+  :config
+  ;; support ligatures, some toned down to prevent hang
+  (when emacs/>=27p
+    (let ((alist
+           '((33 . ".\\(?:\\(==\\|[!=]\\)[!=]?\\)")
+             (35 . ".\\(?:\\(###?\\|_(\\|[(:=?[_{]\\)[#(:=?[_{]?\\)")
+             (36 . ".\\(?:\\(>\\)>?\\)")
+             (37 . ".\\(?:\\(%\\)%?\\)")
+             (38 . ".\\(?:\\(&\\)&?\\)")
+             (42 . ".\\(?:\\(\\*\\*\\|[*>]\\)[*>]?\\)")
+             ;; (42 . ".\\(?:\\(\\*\\*\\|[*/>]\\).?\\)")
+             (43 . ".\\(?:\\([>]\\)>?\\)")
+             ;; (43 . ".\\(?:\\(\\+\\+\\|[+>]\\).?\\)")
+             (45 . ".\\(?:\\(-[->]\\|<<\\|>>\\|[-<>|~]\\)[-<>|~]?\\)")
+             ;; (46 . ".\\(?:\\(\\.[.<]\\|[-.=]\\)[-.<=]?\\)")
+             (46 . ".\\(?:\\(\\.<\\|[-=]\\)[-<=]?\\)")
+             (47 . ".\\(?:\\(//\\|==\\|[=>]\\)[/=>]?\\)")
+             ;; (47 . ".\\(?:\\(//\\|==\\|[*/=>]\\).?\\)")
+             (48 . ".\\(?:x[a-zA-Z]\\)")
+             (58 . ".\\(?:\\(::\\|[:<=>]\\)[:<=>]?\\)")
+             (59 . ".\\(?:\\(;\\);?\\)")
+             (60 . ".\\(?:\\(!--\\|\\$>\\|\\*>\\|\\+>\\|-[-<>|]\\|/>\\|<[-<=]\\|=[<>|]\\|==>?\\||>\\||||?\\|~[>~]\\|[$*+/:<=>|~-]\\)[$*+/:<=>|~-]?\\)")
+             (61 . ".\\(?:\\(!=\\|/=\\|:=\\|<<\\|=[=>]\\|>>\\|[=>]\\)[=<>]?\\)")
+             (62 . ".\\(?:\\(->\\|=>\\|>[-=>]\\|[-:=>]\\)[-:=>]?\\)")
+             (63 . ".\\(?:\\([.:=?]\\)[.:=?]?\\)")
+             (91 . ".\\(?:\\(|\\)[]|]?\\)")
+             ;; (92 . ".\\(?:\\([\\n]\\)[\\]?\\)")
+             (94 . ".\\(?:\\(=\\)=?\\)")
+             (95 . ".\\(?:\\(|_\\|[_]\\)_?\\)")
+             (119 . ".\\(?:\\(ww\\)w?\\)")
+             (123 . ".\\(?:\\(|\\)[|}]?\\)")
+             (124 . ".\\(?:\\(->\\|=>\\||[-=>]\\||||*>\\|[]=>|}-]\\).?\\)")
+             (126 . ".\\(?:\\(~>\\|[-=>@~]\\)[-=>@~]?\\)"))))
+      (dolist (char-regexp alist)
+        (set-char-table-range composition-ligature-table (car char-regexp)
+                              `([,(cdr char-regexp) 0 font-shape-gstring]))))
+    (set-char-table-parent composition-ligature-table composition-function-table)))
 
 (provide 'init-ui)
 
