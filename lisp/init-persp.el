@@ -79,13 +79,17 @@
     (when (and (display-graphic-p) centaur-restore-frame-geometry persp-mode)
       (fix-fullscreen-cocoa)
       (when (file-readable-p persp-frame-file)
-        (load persp-frame-file)
+        (condition-case error
+            (progn
+              (load persp-frame-file)
 
-        ;; Handle multiple monitors gracefully
-        (when (>= (frame-parameter nil 'left) (display-pixel-width))
-          (set-frame-parameter nil 'left 0))
-        (when (>= (frame-parameter nil 'top) (display-pixel-height))
-          (set-frame-parameter nil 'top 0)))))
+              ;; Handle multiple monitors gracefully
+              (when (>= (eval (frame-parameter nil 'left)) (display-pixel-width))
+                (set-frame-parameter nil 'left 0))
+              (when (>= (eval (frame-parameter nil 'top)) (display-pixel-height))
+                (set-frame-parameter nil 'top 0)))
+          (error
+           (warn "persp frame: %s" (error-message-string error)))))))
 
   (with-no-warnings
     ;; Don't save if the sate is not loaded
@@ -175,7 +179,27 @@
                                   persp nil nil)))
           persp)))
     (advice-add #'persp-mode-projectile-bridge-add-new-persp
-                :override #'my-persp-mode-projectile-bridge-add-new-persp)))
+                :override #'my-persp-mode-projectile-bridge-add-new-persp)
+
+    ;; HACK: Switch to buffer after switching perspective
+    (defun my-persp-mode-projectile-bridge-hook-switch (&rest _args)
+      (let* ((buf (current-buffer))
+             (persp (persp-mode-projectile-bridge-find-perspective-for-buffer buf)))
+        (when persp
+          (when (buffer-live-p
+                 persp-mode-projectile-bridge-before-switch-selected-window-buffer)
+            (let ((win (selected-window)))
+              (unless (eq (window-buffer win)
+                          persp-mode-projectile-bridge-before-switch-selected-window-buffer)
+                (set-window-buffer
+                 win persp-mode-projectile-bridge-before-switch-selected-window-buffer)
+                (setq persp-mode-projectile-bridge-before-switch-selected-window-buffer nil))))
+          (persp-frame-switch (persp-name persp))
+
+          (when (buffer-live-p buf)
+            (switch-to-buffer buf)))))
+    (advice-add #'persp-mode-projectile-bridge-hook-switch
+                :override #'my-persp-mode-projectile-bridge-hook-switch)))
 
 (provide 'init-persp)
 

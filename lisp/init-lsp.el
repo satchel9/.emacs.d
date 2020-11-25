@@ -74,6 +74,7 @@
            lsp-signature-auto-activate nil
            lsp-modeline-code-actions-enable nil
            lsp-modeline-diagnostics-enable nil
+           lsp-modeline-workspace-status-enable nil
 
            lsp-enable-file-watchers nil
            lsp-enable-folding nil
@@ -106,7 +107,7 @@
      :custom-face
      (lsp-ui-sideline-code-action ((t (:inherit warning))))
      :pretty-hydra
-     ((:title (pretty-hydra-title "LSP UI" 'faicon "rocket")
+     ((:title (pretty-hydra-title "LSP UI" 'faicon "rocket" :face 'all-the-icons-green)
        :color amaranth :quit-key "q")
       ("Doc"
        (("d e" (progn
@@ -121,6 +122,8 @@
          "bottom" :toggle (eq lsp-ui-doc-position 'bottom))
         ("d p" (setq lsp-ui-doc-position 'at-point)
          "at point" :toggle (eq lsp-ui-doc-position 'at-point))
+        ("d h" (setq lsp-ui-doc-header (not lsp-ui-doc-header))
+         "header" :toggle lsp-ui-doc-header)
         ("d f" (setq lsp-ui-doc-alignment 'frame)
          "align frame" :toggle (eq lsp-ui-doc-alignment 'frame))
         ("d w" (setq lsp-ui-doc-alignment 'window)
@@ -193,9 +196,7 @@
        :bind (:map lsp-mode-map
               ("<f5>" . dap-debug)
               ("M-<f5>" . dap-hydra))
-       :hook ((after-init . dap-mode)
-              (dap-mode . dap-ui-mode)
-              (dap-session-created . (lambda (_args) (dap-hydra)))
+       :hook ((after-init . dap-auto-configure-mode)
               (dap-stopped . (lambda (_args) (dap-hydra)))
               (dap-terminated . (lambda (_args) (dap-hydra/nil)))
 
@@ -209,7 +210,6 @@
               ((js-mode js2-mode) . (lambda () (require 'dap-chrome)))
               (powershell-mode . (lambda () (require 'dap-pwsh))))
        :init
-       (setq dap-auto-configure-features '(sessions locals breakpoints expressions controls))
        (when (executable-find "python3")
          (setq dap-python-executable "python3"))))
 
@@ -401,7 +401,15 @@
 
    ;; Python: pyright
    (use-package lsp-pyright
-     :hook (python-mode . (lambda () (require 'lsp-pyright)))
+     :preface
+     ;; Use yapf to format
+     (defun lsp-pyright-format-buffer ()
+       (interactive)
+       (when (and (executable-find "yapf") buffer-file-name)
+         (call-process "yapf" nil nil nil "-i" buffer-file-name)))
+     :hook (python-mode . (lambda ()
+                            (require 'lsp-pyright)
+                            (add-hook 'after-save-hook #'lsp-pyright-format-buffer t t)))
      :init (when (executable-find "python3")
              (setq lsp-pyright-python-executable-cmd "python3")))
 
