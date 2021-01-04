@@ -316,21 +316,21 @@
 
     ;; More actions
     (ivy-add-actions
-     'swiper-isearch
+     #'swiper-isearch
      '(("r" my-ivy-switch-to-counsel-rg "rg")
        ("d" my-ivy-switch-to-rg-dwim "rg dwim")
        ("s" my-ivy-switch-to-swiper "swiper")
        ("a" my-ivy-switch-to-swiper-all "swiper all")))
 
     (ivy-add-actions
-     'swiper
+     #'swiper
      '(("r" my-ivy-switch-to-counsel-rg "rg")
        ("d" my-ivy-switch-to-rg-dwim "rg dwim")
        ("s" my-ivy-switch-to-swiper-isearch "swiper isearch")
        ("a" my-ivy-switch-to-swiper-all "swiper all")))
 
     (ivy-add-actions
-     'swiper-all
+     #'swiper-all
      '(("g" my-ivy-switch-to-counsel-git-grep "git grep")
        ("r" my-ivy-switch-to-counsel-rg "rg")
        ("d" my-ivy-switch-to-rg-dwim "rg dwim")
@@ -338,14 +338,14 @@
        ("S" my-ivy-switch-to-swiper "swiper")))
 
     (ivy-add-actions
-     'counsel-rg
+     #'counsel-rg
      '(("s" my-ivy-switch-to-swiper-isearch "swiper isearch")
        ("S" my-ivy-switch-to-swiper "swiper")
        ("a" my-ivy-switch-to-swiper-all "swiper all")
        ("d" my-ivy-switch-to-rg-dwim "rg dwim")))
 
     (ivy-add-actions
-     'counsel-git-grep
+     #'counsel-git-grep
      '(("s" my-ivy-switch-to-swiper-isearch "swiper isearch")
        ("S" my-ivy-switch-to-swiper "swiper")
        ("r" my-ivy-switch-to-rg-dwim "rg")
@@ -353,12 +353,12 @@
        ("a" my-ivy-switch-to-swiper-all "swiper all")))
 
     (ivy-add-actions
-     'counsel-find-file
+     #'counsel-find-file
      '(("g" my-ivy-switch-to-counsel-git "git")
        ("z" my-ivy-switch-to-counsel-fzf "fzf")))
 
     (ivy-add-actions
-     'counsel-git
+     #'counsel-git
      '(("f" my-ivy-switch-to-counsel-find-file "find file")
        ("z" my-ivy-switch-to-counsel-fzf "fzf")))
 
@@ -415,8 +415,9 @@ This is for use in `ivy-re-builders-alist'."
           '(:not swiper swiper-isearch ivy-switch-buffer
             lsp-ivy-workspace-symbol ivy-resume ivy--restore-session
             counsel-grep counsel-git-grep counsel-rg counsel-ag
-            counsel-ack counsel-fzf counsel-pt counsel-imenu counsel-load-theme
-            counsel-yank-pop counsel-recentf counsel-buffer-or-recentf))
+            counsel-ack counsel-fzf counsel-pt counsel-imenu
+            counsel-org-capture counsel-load-theme counsel-yank-pop
+            counsel-recentf counsel-buffer-or-recentf))
 
     (ivy-prescient-mode 1))
 
