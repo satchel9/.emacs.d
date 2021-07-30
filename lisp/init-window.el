@@ -1,6 +1,6 @@
 ;; init-window.el --- Initialize window configurations.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2006-2020 Vincent Zhang
+;; Copyright (C) 2006-2021 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -59,16 +59,17 @@
    ("Actions"
     (("TAB" other-window "switch")
      ("x" ace-delete-window "delete" :exit t)
-     ("m" ace-delete-other-windows "maximize" :exit t)
+     ("X" ace-delete-other-windows "delete other" :exit t)
      ("s" ace-swap-window "swap" :exit t)
      ("a" ace-select-window "select" :exit t)
+     ("m" toggle-frame-maximized "maximize" :exit t)
      ("f" toggle-frame-fullscreen "fullscreen" :exit t))
     "Resize"
     (("h" shrink-window-horizontally "←")
      ("j" enlarge-window "↓")
      ("k" shrink-window "↑")
      ("l" enlarge-window-horizontally "→")
-     ("n" balance-windows "balance"))
+     ("n" balance-windows "balance" :exit t))
     "Split"
     (("r" split-window-right "horizontally")
      ("R" split-window-horizontally-instead "horizontally instead")
@@ -84,8 +85,8 @@
     (("F" set-frame-font "font")
      ("T" centaur-load-theme "theme"))))
   :custom-face
-  (aw-leading-char-face ((t (:inherit font-lock-keyword-face :bold t :height 3.0))))
-  (aw-minibuffer-leading-char-face ((t (:inherit font-lock-keyword-face :bold t :height 2.0))))
+  (aw-leading-char-face ((t (:inherit font-lock-keyword-face :bold t :height 2.0))))
+  (aw-minibuffer-leading-char-face ((t (:inherit font-lock-keyword-face :bold t :height 1.0))))
   (aw-mode-line-face ((t (:inherit mode-line-emphasis :bold t))))
   :bind (([remap other-window] . ace-window)
          ("C-c w" . ace-window-hydra/body))
@@ -127,7 +128,9 @@
       (let ((found nil))
         (dolist (win (aw-window-list))
           (when (and (window-live-p win)
-                     (eq number (string-to-number (window-parameter win 'ace-window-path))))
+                     (eq number
+                         (string-to-number
+                          (window-parameter win 'ace-window-path))))
             (setq found t)
             (aw-switch-to-window win)))
         (unless found
@@ -140,68 +143,8 @@
 
 ;; Enforce rules for popups
 (use-package shackle
-  :functions org-switch-to-buffer-other-window
-  :commands shackle-display-buffer
   :hook (after-init . shackle-mode)
-  :config
-  (with-no-warnings
-    (defvar shackle--popup-window-list nil) ; all popup windows
-    (defvar-local shackle--current-popup-window nil) ; current popup window
-    (put 'shackle--current-popup-window 'permanent-local t)
-
-    (defun shackle-last-popup-buffer ()
-      "View last popup buffer."
-      (interactive)
-      (ignore-errors
-        (display-buffer shackle-last-buffer)))
-    (bind-key "C-h z" #'shackle-last-popup-buffer)
-
-    ;; Add keyword: `autoclose'
-    (defun shackle-display-buffer-hack (fn buffer alist plist)
-      (let ((window (funcall fn buffer alist plist)))
-        (setq shackle--current-popup-window window)
-
-        (when (plist-get plist :autoclose)
-          (push (cons window buffer) shackle--popup-window-list))
-        window))
-
-    (defun shackle-close-popup-window-hack (&rest _)
-      "Close current popup window via `C-g'."
-      (setq shackle--popup-window-list
-            (cl-loop for (window . buffer) in shackle--popup-window-list
-                     if (and (window-live-p window)
-                             (equal (window-buffer window) buffer))
-                     collect (cons window buffer)))
-      ;; `C-g' can deactivate region
-      (when (and (called-interactively-p 'interactive)
-                 (not (region-active-p)))
-        (let (window buffer process)
-          (if (one-window-p)
-              (progn
-                (setq window (selected-window))
-                (when (equal (buffer-local-value 'shackle--current-popup-window
-                                                 (window-buffer window))
-                             window)
-                  (winner-undo)))
-            (progn
-              (setq window (caar shackle--popup-window-list))
-              (setq buffer (cdar shackle--popup-window-list))
-              (when (and (window-live-p window)
-                         (equal (window-buffer window) buffer))
-                (setq process (get-buffer-process buffer))
-                (when (process-live-p process)
-                  (kill-process process))
-                (delete-window window)
-
-                (pop shackle--popup-window-list)))))))
-
-    (advice-add #'keyboard-quit :before #'shackle-close-popup-window-hack)
-    (advice-add #'shackle-display-buffer :around #'shackle-display-buffer-hack))
-
-  ;; HACK: compatibility issue with `org-switch-to-buffer-other-window'
-  (advice-add #'org-switch-to-buffer-other-window :override #'switch-to-buffer-other-window)
-
-  ;; rules
+  :init
   (setq shackle-default-size 0.4
         shackle-default-alignment 'below
         shackle-default-rule nil
@@ -231,10 +174,10 @@
           (" *Install vterm* " :size 0.35 :same t :align 'below)
           (("*Paradox Report*" "*package update results*") :size 0.2 :align 'below :autoclose t)
           ("*Package-Lint*" :size 0.4 :align 'below :autoclose t)
-          (("*Gofmt Errors*" "*Go Test*") :select t :size 0.3 :align 'below :autoclose t)
           ("*How Do You*" :select t :size 0.5 :align 'below :autoclose t)
 
-          (("*Org Agenda*" " *Agenda Commands*" " *Org todo*" "*Org Dashboard*" "*Org Select*") :select t :size 0.1 :align 'below :autoclose t)
+          (("*Org Agenda*" " *Agenda Commands*" " *Org todo*" "*Org Dashboard*" "*Org Select*")
+           :select t :size 0.1 :align 'below :autoclose t)
           (("\\*Capture\\*" "^CAPTURE-.*\\.org*") :regexp t :select t :size 0.3 :align 'below :autoclose t)
 
           ("*ert*" :size 15 :align 'below :autoclose t)
@@ -248,7 +191,8 @@
           ("*DAP Templates*" :select t :size 0.4 :align 'below :autoclose t)
           (dap-server-log-mode :size 15 :align 'below :autoclose t)
           ("*rustfmt*" :select t :size 0.3 :align 'below :autoclose t)
-          ((rustic-compilation-mode rustic-cargo-clippy-mode rustic-cargo-outdated-mode rustic-cargo-test-mode) :select t :size 0.3 :align 'below :autoclose t)
+          ((rustic-compilation-mode rustic-cargo-clippy-mode rustic-cargo-outdated-mode rustic-cargo-test-mode)
+           :select t :size 0.3 :align 'below :autoclose t)
 
           (profiler-report-mode :select t :size 0.5 :align 'below)
           ("*ELP Profiling Restuls*" :select t :size 0.5 :align 'below)
@@ -256,13 +200,75 @@
           ((inferior-python-mode inf-ruby-mode swift-repl-mode) :size 0.4 :align 'below)
           ("*prolog*" :size 0.4 :align 'below)
 
+          (("*Gofmt Errors*" "*Go Test*") :select t :size 0.3 :align 'below :autoclose t)
+          (godoc-mode :select t :size 0.4 :align 'below :autoclose t)
+
           ((grep-mode rg-mode deadgrep-mode ag-mode pt-mode) :select t :size 0.4 :align 'below)
-          (Buffer-menu-mode :select t :size 20 :align 'below :autoclose t)
+          (Buffer-menu-mode :select t :size 0.5 :align 'below :autoclose t)
           (gnus-article-mode :select t :size 0.7 :align 'below :autoclose t)
           (helpful-mode :select t :size 0.3 :align 'below :autoclose t)
+          (devdocs-mode :select t :size 0.4 :align 'below :autoclose t)
           ((process-menu-mode cargo-process-mode) :select t :size 0.3 :align 'below :autoclose t)
-          (list-environment-mode :select t :size 0.3 :align 'below :autoclose t)
-          (tabulated-list-mode :size 0.4 :align 'below))))
+          ("*Process-Environment*" :select t :size 0.3 :align 'below :autoclose t)
+          (("*docker-containers*" "*docker-images*" "*docker-networks*" "*docker-volumes*")
+           :size 0.4 :align 'below :autoclose t)
+          (bookmark-bmenu-mode :select t :size 0.4 :align 'below)
+          (tabulated-list-mode :size 0.4 :align 'below :autclose t)))
+  :config
+  (with-no-warnings
+    (defvar shackle--popup-window-list nil
+      "All popup windows.")
+    (defvar-local shackle--current-popup-window nil
+      "Current popup window.")
+    (put 'shackle--current-popup-window 'permanent-local t)
+
+    (defun shackle-last-popup-buffer ()
+      "View last popup buffer."
+      (interactive)
+      (ignore-errors
+        (display-buffer shackle-last-buffer)))
+    (bind-key "C-h z" #'shackle-last-popup-buffer)
+
+    ;; Add keyword: `autoclose'
+    (defun shackle-display-buffer-hack (fn buffer alist plist)
+      (let ((window (funcall fn buffer alist plist)))
+        (setq shackle--current-popup-window window)
+
+        (when (plist-get plist :autoclose)
+          (push (cons window buffer) shackle--popup-window-list))
+        window))
+    (advice-add #'shackle-display-buffer :around #'shackle-display-buffer-hack)
+
+    (defun shackle-close-popup-window-hack (&rest _)
+      "Close current popup window via `C-g'."
+      (setq shackle--popup-window-list
+            (cl-loop for (window . buffer) in shackle--popup-window-list
+                     if (and (window-live-p window)
+                             (equal (window-buffer window) buffer))
+                     collect (cons window buffer)))
+      ;; `C-g' can deactivate region
+      (when (and (called-interactively-p 'interactive)
+                 (not (region-active-p)))
+        (if (one-window-p)
+            (let ((window (selected-window)))
+              (when (equal (buffer-local-value 'shackle--current-popup-window
+                                               (window-buffer window))
+                           window)
+                (winner-undo)))
+          (let* ((window (caar shackle--popup-window-list))
+                 (buffer (cdar shackle--popup-window-list))
+                 (process (get-buffer-process buffer)))
+            (when (and (window-live-p window)
+                       (equal (window-buffer window) buffer))
+              (when (process-live-p process)
+                (kill-process process))
+              (delete-window window)
+              (pop shackle--popup-window-list))))))
+    (advice-add #'keyboard-quit :before #'shackle-close-popup-window-hack)
+
+    ;; Compatible with org
+    (advice-add #'org-switch-to-buffer-other-window
+                :override #'switch-to-buffer-other-window)))
 
 (provide 'init-window)
 

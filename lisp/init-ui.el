@@ -1,6 +1,6 @@
 ;; init-ui.el --- Better lookings and appearances.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2006-2020 Vincent Zhang
+;; Copyright (C) 2006-2021 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -50,6 +50,15 @@
                 (set-frame-parameter nil 'ns-appearance bg)
                 (setcdr (assq 'ns-appearance default-frame-alist) bg)))))
 
+;; Optimization
+(setq idle-update-delay 1.0)
+
+(setq-default cursor-in-non-selected-windows nil)
+(setq highlight-nonselected-windows nil)
+
+(setq fast-but-imprecise-scrolling t)
+(setq redisplay-skip-fontification-on-input t)
+
 ;; Inhibit resizing frame
 (setq frame-inhibit-implied-resize t
       frame-resize-pixelwise t)
@@ -64,14 +73,8 @@
 (if (centaur-compatible-theme-p centaur-theme)
     (progn
       ;; Make certain buffers grossly incandescent
-      ;; Must before loading the theme
       (use-package solaire-mode
-        :functions persp-load-state-from-file
-        :hook (((change-major-mode after-revert ediff-prepare-buffer) . turn-on-solaire-mode)
-               (minibuffer-setup . solaire-mode-in-minibuffer))
-        :init
-        (solaire-global-mode 1)
-        (advice-add #'persp-load-state-from-file :after #'solaire-mode-restore-persp-mode-buffers))
+        :hook (after-load-theme . solaire-global-mode))
 
       (use-package doom-themes
         :custom-face
@@ -84,7 +87,9 @@
         (doom-themes-visual-bell-config)
 
         ;; Enable customized theme
-        (doom-themes-treemacs-config)))
+        ;; FIXME https://github.com/emacs-lsp/lsp-treemacs/issues/89
+        (with-eval-after-load 'lsp-treemacs
+          (doom-themes-treemacs-config))))
   (progn
     (warn "The current theme may not be compatible!")
     (centaur-load-theme centaur-theme t)))
@@ -94,8 +99,6 @@
   :custom
   (doom-modeline-icon centaur-icon)
   (doom-modeline-minor-modes t)
-  (doom-modeline-unicode-fallback t)
-  (doom-modeline-mu4e nil)
   :hook (after-init . doom-modeline-mode)
   :init
   ;; Prevent flash of unstyled modeline at startup
@@ -123,7 +126,9 @@
      ("v" (setq doom-modeline-modal-icon (not doom-modeline-modal-icon))
       "modal" :toggle doom-modeline-modal-icon))
     "Segment"
-    (("M" (setq doom-modeline-minor-modes (not doom-modeline-minor-modes))
+    (("H" (setq doom-modeline-hud (not doom-modeline-hud))
+      "hud" :toggle doom-modeline-hud)
+     ("M" (setq doom-modeline-minor-modes (not doom-modeline-minor-modes))
       "minor modes" :toggle doom-modeline-minor-modes)
      ("W" (setq doom-modeline-enable-word-count (not doom-modeline-enable-word-count))
       "word count" :toggle doom-modeline-enable-word-count)
@@ -211,7 +216,7 @@
               (flycheck-list-errors)
             (flymake-show-diagnostics-buffer))
       "list errors" :exit t)
-     ("B" (if (bound-and-true-p grip-mode)
+     ("O" (if (bound-and-true-p grip-mode)
               (grip-browse-preview)
             (message "Not in preview"))
       "browse preview" :exit t)
@@ -254,30 +259,30 @@
         (memoize f)))
     (message "Reset all-the-icons"))
 
+  (add-to-list 'all-the-icons-mode-icon-alist
+               '(compilation-mode all-the-icons-faicon "cogs" :v-adjust 0.0 :height 0.9))
   (add-to-list 'all-the-icons-icon-alist
                '("^Rakefile$" all-the-icons-alltheicon "ruby-alt" :face all-the-icons-red))
   (add-to-list 'all-the-icons-icon-alist
-               '("\\.go$" all-the-icons-fileicon "go" :face all-the-icons-blue))
+               '("\\.\\(bat\\|cmd\\)$" all-the-icons-alltheicon "terminal" :face all-the-icons-lsilver))
   (add-to-list 'all-the-icons-icon-alist
                '("\\go.mod$" all-the-icons-fileicon "go" :face all-the-icons-dblue))
   (add-to-list 'all-the-icons-icon-alist
                '("\\go.sum$" all-the-icons-fileicon "go" :face all-the-icons-dpurple))
   (add-to-list 'all-the-icons-mode-icon-alist
-               '(go-mode all-the-icons-fileicon "go" :face all-the-icons-blue))
-  (add-to-list 'all-the-icons-mode-icon-alist
                '(xwidget-webkit-mode all-the-icons-faicon "chrome" :v-adjust -0.1 :face all-the-icons-blue))
   (add-to-list 'all-the-icons-mode-icon-alist
-               '(bongo-playlist-mode all-the-icons-material "queue_music" :height 1.2 :face 'all-the-icons-green))
+               '(bongo-playlist-mode all-the-icons-material "queue_music" :height 1.2 :face all-the-icons-green))
   (add-to-list 'all-the-icons-mode-icon-alist
-               '(bongo-library-mode all-the-icons-material "library_music" :height 1.1 :face 'all-the-icons-green))
+               '(bongo-library-mode all-the-icons-material "library_music" :height 1.1 :face all-the-icons-green))
   (add-to-list 'all-the-icons-mode-icon-alist
-               '(gnus-group-mode all-the-icons-fileicon "gnu" :face 'all-the-icons-silver))
+               '(gnus-group-mode all-the-icons-fileicon "gnu" :face all-the-icons-silver))
   (add-to-list 'all-the-icons-mode-icon-alist
-               '(gnus-summary-mode all-the-icons-octicon "inbox" :height 1.0 :v-adjust 0.0 :face 'all-the-icons-orange))
+               '(gnus-summary-mode all-the-icons-octicon "inbox" :height 1.0 :v-adjust 0.0 :face all-the-icons-orange))
   (add-to-list 'all-the-icons-mode-icon-alist
-               '(gnus-article-mode all-the-icons-octicon "mail" :height 1.1 :v-adjust 0.0 :face 'all-the-icons-lblue))
+               '(gnus-article-mode all-the-icons-octicon "mail" :height 1.1 :v-adjust 0.0 :face all-the-icons-lblue))
   (add-to-list 'all-the-icons-mode-icon-alist
-               '(message-mode all-the-icons-octicon "mail" :height 1.1 :v-adjust 0.0 :face 'all-the-icons-lblue))
+               '(message-mode all-the-icons-octicon "mail" :height 1.1 :v-adjust 0.0 :face all-the-icons-lblue))
   (add-to-list 'all-the-icons-mode-icon-alist
                '(diff-mode all-the-icons-octicon "git-compare" :v-adjust 0.0 :face all-the-icons-lred))
   (add-to-list 'all-the-icons-mode-icon-alist
@@ -380,9 +385,63 @@
          ("C-s--" . default-text-scale-decrease)
          ("C-s-0" . default-text-scale-reset)))
 
+;; Mouse & Smooth Scroll
+;; Scroll one line at a time (less "jumpy" than defaults)
+(when (display-graphic-p)
+  (setq mouse-wheel-scroll-amount '(1 ((shift) . hscroll))
+        mouse-wheel-scroll-amount-horizontal 1
+        mouse-wheel-progressive-speed nil))
+(setq scroll-step 1
+      scroll-margin 0
+      scroll-conservatively 100000
+      auto-window-vscroll nil
+      scroll-preserve-screen-position t)
+
+;; Good pixel line scrolling
+(when (and emacs/>=27p
+           (not sys/macp))
+  (use-package good-scroll
+    :diminish
+    :hook (after-init . good-scroll-mode)
+    :bind (([remap next] . good-scroll-up-full-screen)
+           ([remap prior] . good-scroll-down-full-screen))))
+
+;; Smooth scrolling over images
+(when emacs/>=26p
+  (use-package iscroll
+    :diminish
+    :hook (image-mode . iscroll-mode)))
+
 ;; Use fixed pitch where it's sensible
 (use-package mixed-pitch
   :diminish)
+
+;; Display ugly ^L page breaks as tidy horizontal lines
+(use-package page-break-lines
+  :diminish
+  :hook (after-init . global-page-break-lines-mode))
+
+;; Child frame
+(when (childframe-workable-p)
+  (use-package posframe
+    :hook (after-load-theme . posframe-delete-all)
+    :init
+    (with-eval-after-load 'persp-mode
+      (add-hook 'persp-load-buffer-functions
+                (lambda (&rest _)
+                  (posframe-delete-all))))
+    :config
+    (with-no-warnings
+      (defun my-posframe--prettify-frame (&rest _)
+        (set-face-background 'fringe nil posframe--frame))
+      (advice-add #'posframe--create-posframe :after #'my-posframe--prettify-frame)
+
+      (defun posframe-poshandler-frame-center-near-bottom (info)
+        (cons (/ (- (plist-get info :parent-frame-width)
+                    (plist-get info :posframe-width))
+                 2)
+              (/ (plist-get info :parent-frame-height)
+                 2))))))
 
 (with-no-warnings
   (when sys/macp

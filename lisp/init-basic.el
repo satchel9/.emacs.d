@@ -1,6 +1,6 @@
 ;; init-basic.el --- Better default configurations.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2006-2020 Vincent Zhang
+;; Copyright (C) 2006-2021 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -38,8 +38,8 @@
 (setq user-full-name centaur-full-name
       user-mail-address centaur-mail-address)
 
-;; Key Modifiers
 (with-no-warnings
+  ;; Key Modifiers
   (cond
    (sys/win32p
     ;; make PC keyboard's Win key or other to type Super or Hyper
@@ -58,7 +58,31 @@
                ([(super s)] . save-buffer)
                ([(super v)] . yank)
                ([(super w)] . delete-frame)
-               ([(super z)] . undo)))))
+               ([(super z)] . undo))))
+
+  ;; Optimization
+  (when sys/win32p
+    (setq w32-get-true-file-attributes nil   ; decrease file IO workload
+          w32-pipe-read-delay 0              ; faster IPC
+          w32-pipe-buffer-size (* 64 1024))) ; read more at a time (was 4K)
+  (unless sys/macp
+    (setq command-line-ns-option-alist nil))
+  (unless sys/linuxp
+    (setq command-line-x-option-alist nil))
+
+  ;; Increase how much is read from processes in a single chunk (default is 4kb)
+  (setq read-process-output-max #x10000)  ; 64kb
+
+  ;; Don't ping things that look like domain names.
+  (setq ffap-machine-p-known 'reject)
+
+  ;; Garbage Collector Magic Hack
+  (use-package gcmh
+    :diminish
+    :init
+    (setq gcmh-idle-delay 5
+          gcmh-high-cons-threshold #x1000000) ; 16MB
+    (gcmh-mode 1)))
 
 ;; Encoding
 ;; UTF-8 as the default coding system
@@ -81,10 +105,11 @@
 (modify-coding-system-alist 'process "*" 'utf-8)
 
 ;; Environment
-(when (or sys/mac-x-p sys/linux-x-p)
+(when (or sys/mac-x-p sys/linux-x-p (daemonp))
   (use-package exec-path-from-shell
     :init
-    (setq exec-path-from-shell-variables '("PATH" "MANPATH"))
+    (setq exec-path-from-shell-variables '("PATH" "MANPATH")
+          exec-path-from-shell-arguments '("-l"))
     (exec-path-from-shell-initialize)))
 
 ;; Start server
@@ -111,7 +136,7 @@
                 (lambda (file) (file-in-directory-p file package-user-dir))))
   :config
   (push (expand-file-name recentf-save-file) recentf-exclude)
-  (add-to-list 'recentf-filename-handlers 'abbreviate-file-name))
+  (add-to-list 'recentf-filename-handlers #'abbreviate-file-name))
 
 (use-package savehist
   :ensure nil
@@ -147,8 +172,6 @@
 
 (use-package time
   :ensure nil
-  :unless (display-graphic-p)
-  :hook (after-init . display-time-mode)
   :init (setq display-time-24hr-format t
               display-time-day-and-date t))
 
@@ -157,15 +180,6 @@
     :ensure nil
     :hook (after-init . global-so-long-mode)
     :config (setq so-long-threshold 400)))
-
-;; Mouse & Smooth Scroll
-;; Scroll one line at a time (less "jumpy" than defaults)
-(when (display-graphic-p)
-  (setq mouse-wheel-scroll-amount '(1 ((shift) . 1))
-        mouse-wheel-progressive-speed nil))
-(setq scroll-step 1
-      scroll-margin 0
-      scroll-conservatively 100000)
 
 ;; Misc
 (fset 'yes-or-no-p 'y-or-n-p)

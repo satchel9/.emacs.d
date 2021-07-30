@@ -38,7 +38,7 @@ Emacs power users.
 
 It's able to run on Windows, GNU Linux and macOS. It is compatible **ONLY with
 GNU Emacs 25.1 and above**. In general you're advised to always run with the
-latest stable release - currently **27.1**.
+latest stable release - currently **27.2**.
 
 ## Features
 
@@ -49,7 +49,7 @@ latest stable release - currently **27.1**.
 - Support multiple programming languages
     - C/C++/Object-C/C#/Java
     - Python/Ruby/Perl/PHP/Shell/Powershell/Bat
-    - Javascript/Typescript/JSON/YAML
+    - JavaScript/Typescript/JSON/YAML
     - HTML/CSS/XML
     - Golang/Swift/Rust/Dart/Elixir
     - ...
@@ -97,7 +97,7 @@ extract to `~/.emacs.d`.
 Then start Emacs. Wait for a while to install packages at the first startup.
 Enjoy! :smile:
 
-**NOTE**: Start Emacs with the minimal configuration for fast startup and
+**Note**: Start Emacs with the minimal configuration for fast startup and
 troubleshooting.
 
 ``` shell
@@ -121,6 +121,13 @@ M-x centaur-update-packages
 
 # Update all including configurations, packages and dotfiles
 M-x centaur-update-all
+```
+
+**Trick**: Update configurations and packages in shell.
+
+``` shell
+alias upgrade_emacs='emacs -Q --batch -L "$HOME/.emacs.d/lisp/" -l "init-funcs.el" -l "init-package.el" --eval "(update-config-and-packages t)"'
+
 ```
 
 ### Docker
@@ -147,19 +154,20 @@ For Example:
 (setq centaur-logo nil)                        ; Logo file or nil (official logo)
 (setq centaur-full-name "user name")           ; User full name
 (setq centaur-mail-address "user@email.com")   ; Email address
-(setq centaur-proxy "127.0.0.1:1080")          ; Network proxy
+(setq centaur-proxy "127.0.0.1:1087")          ; HTTP/HTTPS proxy
+(setq centaur-socks-proxy "127.0.0.1:1086")    ; SOCKS proxy
 (setq centaur-server t)                        ; Enable `server-mode' or not: t or nil
 (setq centaur-icon t)                          ; Display icons or not: t or nil
-(setq centaur-package-archives 'emacs-china)   ; Package repo: melpa, emacs-china, netease or tuna
-(setq centaur-theme 'auto)                     ; Color theme: auto, random, default, classic, colorful, dark, light, day or night
-(setq centaur-dashboard t)                     ; Use dashboard at startup or not: t or nil
+(setq centaur-package-archives 'melpa)         ; Package repo: melpa, emacs-china, netease, ustc, tencent or tuna
+(setq centaur-theme 'auto)                     ; Color theme: auto, random, system, default, pro, dark, light, warm, cold, day or night
+(setq centaur-completion-style 'minibuffer)    ; Completion display style: minibuffer or childframe
+(setq centaur-dashboard nil)                   ; Use dashboard at startup or not: t or nil
 (setq centaur-restore-frame-geometry nil)      ; Restore the frame's geometry at startup: t or nil
-(setq centaur-lsp 'lsp-mode)                   ; Set LSP client: lsp-mode, eglot or nil
+(setq centaur-lsp 'eglot)                      ; Set LSP client: lsp-mode, eglot or nil
 (setq centaur-lsp-format-on-save-ignore-modes '(c-mode c++-mode python-mode)) ; Ignore format on save for some languages
 (setq centaur-chinese-calendar nil)            ; Use Chinese calendar or not: t or nil
 (setq centaur-prettify-symbols-alist nil)      ; Alist of symbol prettifications. Nil to use font supports ligatures.
 (setq centaur-prettify-org-symbols-alist nil)  ; Alist of symbol prettifications for `org-mode'
-(setq centaur-benchmark-init nil)              ; Enable initialization benchmark or not: t or nil
 ```
 
 The default package archives is `melpa`. You can change it in `custom.el`, or
@@ -211,7 +219,10 @@ For the personal configurations, you could put to `~/.emacs.d/custom-post.org`
 
 ## FAQ
 
-1. How to display icons correctly in `Centaur Emacs`?
+1. How to display icons correctly in Centaur Emacs?
+
+    Generally you just use `M-x centaur-install-fonts` to install all necessary
+    fonts. The manual steps are below.
 
     [all-the-icons](https://github.com/domtronn/all-the-icons.el) are necessary.
     Run `M-x all-the-icons-install-fonts` to install the resource fonts. On
@@ -277,11 +288,11 @@ For the personal configurations, you could put to `~/.emacs.d/custom-post.org`
    and terminal?
 
     Please refer to #33. You should instead set environment variables in startup
-    files like .profile, .bash_profile or .zshenv, then `Centaur Emacs` is able
-    to recognize and import the environment variables.
+    files like `.profile`, `.bash_profile` or `.zshenv`, then `Centaur Emacs` is
+    able to recognize and import the environment variables.
 
 1. How to use [zoom-window](https://github.com/syohex/emacs-zoom-window) in
-   `Centaur Emacs`?
+   Centaur Emacs?
 
    See [#169](https://github.com/seagle0128/.emacs.d/issues/169#issuecomment-590035527).
 

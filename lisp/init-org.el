@@ -1,6 +1,6 @@
 ;; init-org.el --- Initialize org configurations.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2006-2020 Vincent Zhang
+;; Copyright (C) 2006-2021 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -118,7 +118,8 @@ prepended to the element after the #+HEADER: tag."
       (when text (insert text))))
 
   ;; To speed up startup, don't put to init section
-  (setq org-directory centaur-org-directory
+  (setq org-modules nil                 ; Faster loading
+        org-directory centaur-org-directory
         org-capture-templates
         `(("i" "Idea" entry (file ,(concat org-directory "/idea.org"))
            "*  %^{Title} %?\n%U\n%a\n")
@@ -147,7 +148,7 @@ prepended to the element after the #+HEADER: tag."
         org-log-done 'time
         org-catch-invisible-edits 'smart
         org-startup-indented t
-        org-ellipsis (if (char-displayable-p ?⏷) "\t⏷" nil)
+        org-ellipsis (if (and (display-graphic-p) (char-displayable-p ?⏷)) "\t⏷" nil)
         org-pretty-entities nil
         org-hide-emphasis-markers t)
 
@@ -176,7 +177,7 @@ prepended to the element after the #+HEADER: tag."
   ;; Prettify UI
   (when emacs/>=26p
     (use-package org-superstar
-      :if (char-displayable-p ?⚫)
+      :if (and (display-graphic-p) (char-displayable-p ?⚫))
       :hook (org-mode . org-superstar-mode)
       :init (setq org-superstar-headline-bullets-list '("⚫" "⚫" "⚫" "⚫"))))
 
@@ -184,7 +185,7 @@ prepended to the element after the #+HEADER: tag."
     :diminish
     :hook (org-mode . org-fancy-priorities-mode)
     :init (setq org-fancy-priorities-list
-                (if (char-displayable-p ?⯀)
+                (if (and (display-graphic-p) (char-displayable-p ?⯀))
                     '("⯀" "⯀" "⯀" "⯀")
                   '("HIGH" "MEDIUM" "LOW" "OPTIONAL"))))
 
@@ -212,10 +213,6 @@ prepended to the element after the #+HEADER: tag."
   (use-package ob-go
     :init (cl-pushnew '(go . t) load-language-list))
 
-  (use-package ob-ipython
-    :if (executable-find "jupyter")     ; DO NOT remove
-    :init (cl-pushnew '(ipython . t) load-language-list))
-
   ;; Use mermadi-cli: npm install -g @mermaid-js/mermaid-cli
   (use-package ob-mermaid
     :init (cl-pushnew '(mermaid . t) load-language-list))
@@ -238,6 +235,15 @@ prepended to the element after the #+HEADER: tag."
            ("C-c M-o" . org-mime-htmlize)
            :map org-mode-map
            ("C-c M-o" . org-mime-org-buffer-htmlize)))
+
+  ;; Add graphical view of agenda
+  (use-package org-timeline
+    :hook (org-agenda-finalize . org-timeline-insert-timeline))
+
+  ;; Auto-toggle Org LaTeX fragments
+  (use-package org-fragtog
+    :diminish
+    :hook (org-mode . org-fragtog-mode))
 
   ;; Preview
   (use-package org-preview-html
@@ -263,9 +269,14 @@ prepended to the element after the #+HEADER: tag."
                                     (text-scale-increase 0)
                                     (org-remove-inline-images)
                                     (read-only-mode -1))))
-    :config
-    (org-tree-slide-simple-profile)
-    (setq org-tree-slide-skip-outline-level 2))
+    :init (setq org-tree-slide-header nil
+                org-tree-slide-slide-in-effect t
+                org-tree-slide-heading-emphasis nil
+                org-tree-slide-cursor-init t
+                org-tree-slide-modeline-display 'outside
+                org-tree-slide-skip-done nil
+                org-tree-slide-skip-comments t
+                org-tree-slide-skip-outline-level 3))
 
   ;; Pomodoro
   (use-package org-pomodoro
@@ -273,28 +284,35 @@ prepended to the element after the #+HEADER: tag."
     (org-pomodoro-mode-line ((t (:inherit warning))))
     (org-pomodoro-mode-line-overtime ((t (:inherit error))))
     (org-pomodoro-mode-line-break ((t (:inherit success))))
-    :bind (:map org-agenda-mode-map
-           ("P" . org-pomodoro))))
+    :bind (:map org-mode-map
+           ("C-c C-x m" . org-pomodoro))
+    :init
+    (with-eval-after-load 'org-agenda
+      (bind-keys :map org-agenda-mode-map
+        ("K" . org-pomodoro)
+        ("C-c C-x m" . org-pomodoro)))))
 
 ;; Roam
 (when (and emacs/>=26p (executable-find "cc"))
   (use-package org-roam
     :diminish
-    :custom (org-roam-directory (file-truename centaur-org-directory))
-    :hook (after-init . org-roam-mode)
-    :bind (:map org-roam-mode-map
-           (("C-c n l" . org-roam)
-            ("C-c n f" . org-roam-find-file)
-            ("C-c n g" . org-roam-graph))
-           :map org-mode-map
-           (("C-c n i" . org-roam-insert))
-           (("C-c n I" . org-roam-insert-immediate)))
+    :hook (after-init . org-roam-setup)
+    :bind (("C-c n l" . org-roam-buffer-toggle)
+           ("C-c n f" . org-roam-node-find)
+           ("C-c n g" . org-roam-graph)
+           ("C-c n i" . org-roam-node-insert)
+           ("C-c n c" . org-roam-capture)
+           ("C-c n j" . org-roam-dailies-capture-today)
+           ("C-c n I" . org-roam-insert-immediate))
+    :init
+    (setq org-roam-directory (file-truename centaur-org-directory)
+          org-roam-v2-ack t)
     :config
     (unless (file-exists-p org-roam-directory)
       (make-directory org-roam-directory)))
 
   (use-package org-roam-server
-    :functions xwidget-buffer xwidget-webkit-current-session
+    :diminish
     :hook (org-roam-server-mode . org-roam-server-browse)
     :init
     (defun org-roam-server-browse ()

@@ -1,6 +1,6 @@
 ;; init-custom.el --- Define customizations.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2006-2020 Vincent Zhang
+;; Copyright (C) 2006-2021 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -42,12 +42,12 @@
   :group 'centaur
   :type 'string)
 
-(defcustom centaur-full-name "Vincent Zhang"
+(defcustom centaur-full-name user-full-name
   "Set user full name."
   :group 'centaur
   :type 'string)
 
-(defcustom centaur-mail-address "seagle0128@gmail.com"
+(defcustom centaur-mail-address user-mail-address
   "Set user email address."
   :group 'centaur
   :type 'string)
@@ -58,7 +58,12 @@
   :type 'string)
 
 (defcustom centaur-proxy "127.0.0.1:1087"
-  "Set network proxy."
+  "Set HTTP/HTTPS proxy."
+  :group 'centaur
+  :type 'string)
+
+(defcustom centaur-socks-proxy "127.0.0.1:1086"
+  "Set SOCKS proxy."
   :group 'centaur
   :type 'string)
 
@@ -67,7 +72,7 @@
   :group 'centaur
   :type 'boolean)
 
-(defcustom centaur-icon (display-graphic-p)
+(defcustom centaur-icon t
   "Display icons or not."
   :group 'centaur
   :type 'boolean)
@@ -81,6 +86,9 @@
     `(,(cons 'melpa
              `(,(cons "gnu"   (concat proto "://elpa.gnu.org/packages/"))
                ,(cons "melpa" (concat proto "://melpa.org/packages/"))))
+      ,(cons 'bfsu
+             `(,(cons "gnu"   (concat proto "://mirrors.bfsu.edu.cn/elpa/gnu/"))
+               ,(cons "melpa" (concat proto "://mirrors.bfsu.edu.cn/elpa/melpa/"))))
       ,(cons 'emacs-china
              `(,(cons "gnu"   (concat proto "://elpa.emacs-china.org/gnu/"))
                ,(cons "melpa" (concat proto "://elpa.emacs-china.org/melpa/"))))
@@ -119,14 +127,14 @@
                     centaur-package-archives-alist)))
 
 (defcustom centaur-theme-alist
-  '((default  . doom-one)
-    (classic  . doom-monokai-classic)
-    (dark     . doom-dark+)
-    (light    . doom-one-light)
-    (warm     . doom-flatwhite)
-    (cold     . doom-city-lights)
-    (day      . doom-tomorrow-day)
-    (night    . doom-tomorrow-night))
+  '((default . doom-one)
+    (pro     . doom-monokai-pro)
+    (dark    . doom-dark+)
+    (light   . doom-one-light)
+    (warm    . doom-solarized-light)
+    (cold    . doom-city-lights)
+    (day     . doom-tomorrow-day)
+    (night   . doom-tomorrow-night))
   "List of themes mapped to internal themes."
   :group 'centaur
   :type '(alist :key-type (symbol :tag "Theme")
@@ -142,14 +150,25 @@ For example:
   '((:sunrise . doom-one-light)
     (:sunset  . doom-one))"
   :group 'centaur
-  :type `(alist :key-type (string :tag "Time")
+  :type '(alist :key-type (string :tag "Time")
                 :value-type (symbol :tag "Theme")))
+
+(when (boundp 'ns-system-appearance)
+  (defcustom centaur-system-themes '((light . doom-one-light)
+				                     (dark  . doom-one))
+    "List of themes related the system appearance. It's only available on macOS."
+    :group 'centaur
+    :type '(alist :key-type (symbol :tag "Appearance")
+                  :value-type (symbol :tag "Theme"))))
 
 (defcustom centaur-theme 'default
   "The color theme."
   :group 'centaur
-  :type `(choice (const :tag "Auto" 'auto)
-                 (const :tag "Random" 'random)
+  :type `(choice (const :tag "Auto" auto)
+                 (const :tag "Random" random)
+                 ,(if (boundp 'ns-system-appearance)
+                      '(const :tag "System" system)
+                    "")
                  ,@(mapcar
                     (lambda (item)
                       (let ((name (car item)))
@@ -158,6 +177,12 @@ For example:
                               name)))
                     centaur-theme-alist)
                  symbol))
+
+(defcustom centaur-completion-style 'childframe
+  "Completion display style."
+  :group 'centaur
+  :type '(choice (const :tag "Minibuffer" minibuffer)
+                 (const :tag "Child Frame" childframe)))
 
 (defcustom centaur-dashboard t
   "Use dashboard at startup or not.
@@ -172,14 +197,19 @@ If Non-nil, save and restore the frame's geometry."
   :type 'boolean)
 
 (defcustom centaur-lsp 'lsp-mode
-  "Set language server."
-  :group 'centaur
-  :type '(choice
-          (const :tag "LSP Mode" 'lsp-mode)
-          (const :tag "Eglot" 'eglot)
-          nil))
+  "Set language server.
 
-(defcustom centaur-lsp-format-on-save-ignore-modes '(c-mode c++-mode python-mode)
+`lsp-mode': See https://github.com/emacs-lsp/lsp-mode.
+`eglot': See https://github.com/joaotavora/eglot.
+tags: Use tags file instead of language server. See https://github.com/universal-ctags/citre.
+nil means disabled."
+  :group 'centaur
+  :type '(choice (const :tag "LSP Mode" lsp-mode)
+                 (const :tag "Eglot" eglot)
+                 (const :tag "Disable" nil)))
+
+(defcustom centaur-lsp-format-on-save-ignore-modes
+  '(c-mode c++-mode python-mode)
   "The modes that don't auto format and organize imports while saving the buffers.
 `prog-mode' means ignoring all derived modes.
 "
@@ -240,11 +270,6 @@ Nil to use font supports ligatures."
   "Alist of symbol prettifications for `org-mode'."
   :group 'centaur
   :type '(alist :key-type string :value-type (choice character sexp)))
-
-(defcustom centaur-benchmark-init nil
-  "Enable the initialization benchmark or not."
-  :group 'centaur
-  :type 'boolean)
 
 ;; Load `custom-file'
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))

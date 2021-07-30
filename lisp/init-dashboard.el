@@ -1,6 +1,6 @@
 ;; init-dashboard.el --- Initialize dashboard configurations.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2018-2020 Vincent Zhang
+;; Copyright (C) 2018-2021 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -83,6 +83,7 @@
     :init
     (setq dashboard-banner-logo-title "CENTAUR EMACS - Enjoy Programming & Writing"
           dashboard-startup-banner (or centaur-logo 'official)
+          dashboard-page-separator "\n\f\n"
           dashboard-center-content t
           dashboard-show-shortcuts nil
           dashboard-items '((recents  . 10)
