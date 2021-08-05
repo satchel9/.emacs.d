@@ -126,15 +126,21 @@
   (setq swiper-action-recenter t)
 
   (setq counsel-find-file-at-point t
+        counsel-preselect-current-file t
         counsel-yank-pop-separator "\n────────\n")
+  (add-hook 'counsel-grep-post-action-hook #'recenter)
 
-  ;; Use the faster search tool: ripgrep (`rg')
+  ;; Use the faster search tools
   (when (executable-find "rg")
-    (setq counsel-grep-base-command "rg -S --no-heading --line-number --color never %s %s")
-    (when (and sys/macp (executable-find "gls"))
-      (setq counsel-find-file-occur-use-find nil
-            counsel-find-file-occur-cmd
-            "gls -a | grep -i -E '%s' | tr '\\n' '\\0' | xargs -0 gls -d --group-directories-first")))
+    (setq counsel-grep-base-command "rg -S --no-heading --line-number --color never %s %s"))
+  (setq counsel-fzf-cmd
+        "fd --type f --hidden --follow --exclude .git --color never || git ls-tree -r --name-only HEAD || rg --files --hidden --follow --glob '!.git' --color never || find .")
+
+  ;; Be compatible with `gls'
+  (when (and sys/macp (executable-find "gls"))
+    (setq counsel-find-file-occur-use-find nil
+          counsel-find-file-occur-cmd
+          "gls -a | grep -i -E '%s' | tr '\\n' '\\0' | xargs -0 gls -d --group-directories-first"))
   :config
   (with-no-warnings
     ;; persist views
@@ -250,6 +256,12 @@
       "Switch to `counsel-git' with the current input."
       (counsel-git ivy-text))
 
+    (defun my-ivy-copy-library-path (lib)
+      "Copy the full path of LIB."
+      (let ((path (find-library-name lib)))
+        (kill-new path)
+        (message "Copied path: \"%s\"." path)))
+
     ;; @see https://emacs-china.org/t/swiper-swiper-isearch/9007/12
     (defun my-swiper-toggle-counsel-rg ()
       "Toggle `counsel-rg' and `swiper'/`swiper-isearch' with the current input."
@@ -354,6 +366,14 @@
      'counsel-fzf
      '(("f" my-ivy-switch-to-counsel-find-file "find file")
        ("g" my-ivy-switch-to-counsel-git "git")))
+
+    (ivy-add-actions
+     'counsel-find-library
+     '(("p" my-ivy-copy-library-path "copy path")))
+
+    (ivy-add-actions
+     'counsel-load-library
+     '(("p" my-ivy-copy-library-path "copy path")))
 
     ;; Integration with `projectile'
     (with-eval-after-load 'projectile
