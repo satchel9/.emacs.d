@@ -1,6 +1,6 @@
 ;; init-shell.el --- Initialize shell configurations.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2006-2021 Vincent Zhang
+;; Copyright (C) 2006-2022 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -9,7 +9,7 @@
 ;;
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
-;; published by the Free Software Foundation; either version 2, or
+;; published by the Free Software Foundation; either version 3, or
 ;; (at your option) any later version.
 ;;
 ;; This program is distributed in the hope that it will be useful,
@@ -31,6 +31,7 @@
 ;;; Code:
 
 (require 'init-const)
+(require 'init-funcs)
 
 (use-package shell
   :ensure nil
@@ -105,26 +106,149 @@
   (advice-add 'compilation-filter :around #'my-advice-compilation-filter)
   (advice-add 'gud-filter :around #'my-advice-compilation-filter))
 
-;; Better term
+;; Better terminal emulator
 ;; @see https://github.com/akermu/emacs-libvterm#installation
 (when (and module-file-suffix           ; dynamic module
            (executable-find "cmake")
-           (executable-find "libtool")
+           (executable-find "libtool")  ; libtool-bin
            (executable-find "make"))
   (use-package vterm
     :bind (:map vterm-mode-map
-           ([f9] . shell-pop))
-    :init (setq vterm-always-compile-module t)))
+           ([f9] . (lambda ()
+                     (interactive)
+                     (and (fboundp 'shell-pop-toggle)
+                          (shell-pop-toggle)))))
+    :init (setq vterm-always-compile-module t))
 
-;; Shell Pop
-(use-package shell-pop
-  :bind ([f9] . shell-pop)
-  :init (setq shell-pop-window-size 30
-              shell-pop-shell-type
-              (cond ((fboundp 'vterm) '("vterm" "*vterm*" #'vterm))
-                    (sys/win32p '("eshell" "*eshell*" #'eshell))
-                    (t '("terminal" "*terminal*"
-                         (lambda () (term shell-pop-term-shell)))))))
+  (use-package multi-vterm
+    :bind ("C-<f9>" . multi-vterm)
+    :custom (multi-vterm-buffer-name "vterm")
+    :config
+    (with-no-warnings
+      ;; Use `pop-to-buffer' instead of `switch-to-buffer'
+      (defun my-multi-vterm ()
+        "Create new vterm buffer."
+        (interactive)
+        (let ((vterm-buffer (multi-vterm-get-buffer)))
+          (setq multi-vterm-buffer-list
+                (nconc multi-vterm-buffer-list (list vterm-buffer)))
+          (set-buffer vterm-buffer)
+          (multi-vterm-internal)
+          (pop-to-buffer vterm-buffer)))
+      (advice-add #'multi-vterm :override #'my-multi-vterm)
+
+      ;; FIXME: `project-root' is introduced in 27+.
+      (defun my-multi-vterm-project-root ()
+        "Get `default-directory' for project using projectile or project.el."
+        (unless (boundp 'multi-vterm-projectile-installed-p)
+          (setq multi-vterm-projectile-installed-p (require 'projectile nil t)))
+        (if multi-vterm-projectile-installed-p
+            (projectile-project-root)
+          (let ((project (or (project-current) `(transient . ,default-directory))))
+            (if (fboundp 'project-root)
+                (project-root project)
+              (cdr project)))))
+      (advice-add #'multi-vterm-project-root :override #'my-multi-vterm-project-root))))
+
+;; Powershell
+(use-package powershell
+  :init
+  (defun powershell (&optional buffer)
+    "Launches a powershell in buffer *powershell* and switches to it."
+    (interactive)
+    (let ((buffer (or buffer "*powershell*"))
+          (program (if (executable-find "pwsh") "pwsh"
+                     "powershell")))
+      (make-comint-in-buffer "Powershell" buffer program nil "-NoProfile")
+      (with-current-buffer buffer
+        (setq-local mode-line-format nil))
+      (pop-to-buffer buffer))))
+
+;; Shell Pop: leverage `popper'
+(with-no-warnings
+  (defvar shell-pop--frame nil)
+  (defvar shell-pop--window nil)
+
+  (defun shell-pop--shell (&optional arg)
+    "Run shell and return the buffer."
+    (cond ((fboundp 'vterm) (vterm arg))
+          ((fboundp 'powershell) (powershell arg))
+          (sys/win32p (eshell arg))
+          (t (shell))))
+
+  (defun shell-pop--hide-frame ()
+    "Hide child frame and refocus in parent frame."
+    (when (and (childframe-workable-p)
+               (frame-live-p shell-pop--frame)
+               (frame-visible-p shell-pop--frame))
+      (make-frame-invisible shell-pop--frame)
+      (select-frame-set-input-focus (frame-parent shell-pop--frame))
+      (setq shell-pop--frame nil)))
+
+  (defun shell-pop-toggle ()
+    "Toggle shell."
+    (interactive)
+    (shell-pop--hide-frame)
+    (if (window-live-p shell-pop--window)
+        (progn
+          (delete-window shell-pop--window)
+          (setq shell-pop--window nil))
+      (setq shell-pop--window
+            (get-buffer-window (shell-pop--shell)))))
+  (bind-keys ([f9]  . shell-pop-toggle)
+             ("C-`" . shell-pop-toggle))
+
+  (when (childframe-workable-p)
+    (defun shell-pop-posframe-hidehandler (_)
+      "Hidehandler used by `shell-pop-posframe-toggle'."
+      (not (eq (selected-frame) shell-pop--frame)))
+
+    (defun shell-pop-posframe-toggle ()
+      "Toggle shell in child frame."
+      (interactive)
+      (let* ((buffer (shell-pop--shell))
+             (window (get-buffer-window buffer)))
+        ;; Hide window: for `popper'
+        (when (window-live-p window)
+          (delete-window window))
+
+        (if (and (frame-live-p shell-pop--frame)
+                 (frame-visible-p shell-pop--frame))
+            (progn
+              ;; Hide child frame and refocus in parent frame
+              (make-frame-invisible shell-pop--frame)
+              (select-frame-set-input-focus (frame-parent shell-pop--frame))
+              (setq shell-pop--frame nil))
+          (let ((width  (max 100 (round (* (frame-width) 0.62))))
+                (height (round (* (frame-height) 0.62))))
+            ;; Shell pop in child frame
+            (setq shell-pop--frame
+                  (posframe-show
+                   buffer
+                   :poshandler #'posframe-poshandler-frame-center
+                   :hidehandler #'shell-pop-posframe-hidehandler
+                   :left-fringe 8
+                   :right-fringe 8
+                   :width width
+                   :height height
+                   :min-width width
+                   :min-height height
+                   :internal-border-width 3
+                   :internal-border-color (face-background 'posframe-border nil t)
+                   :background-color (face-background 'tooltip nil t)
+                   :override-parameters '((cursor-type . t))
+                   :respect-mode-line t
+                   :accept-focus t))
+
+            ;; Focus in child frame
+            (select-frame-set-input-focus shell-pop--frame)
+
+            (with-current-buffer buffer
+              (setq-local cursor-type 'box) ; blink cursor
+              (goto-char (point-max))
+              (when (fboundp 'vterm-reset-cursor-point)
+                (vterm-reset-cursor-point)))))))
+    (bind-key "C-`" #'shell-pop-posframe-toggle)))
 
 (provide 'init-shell)
 

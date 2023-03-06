@@ -1,6 +1,6 @@
 ;;; init-package.el --- Initialize package configurations.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2006-2021 Vincent Zhang
+;; Copyright (C) 2006-2022 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -9,7 +9,7 @@
 ;;
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
-;; published by the Free Software Foundation; either version 2, or
+;; published by the Free Software Foundation; either version 3, or
 ;; (at your option) any later version.
 ;;
 ;; This program is distributed in the hope that it will be useful,
@@ -34,48 +34,37 @@
 (require 'init-custom)
 (require 'init-funcs)
 
-;; Load `custom-file'
+;; At first startup
 (when (and (file-exists-p centaur-custom-example-file)
            (not (file-exists-p custom-file)))
-  ;; At the first startup copy `custom-file' from the example
   (copy-file centaur-custom-example-file custom-file)
 
-  ;; Select the package archives
-  (if (or (executable-find "curl") (executable-find "wget"))
-      (progn
-        ;; Get and select the fastest package archives automatically
-        (message "Testing connection... Please wait a moment.")
-        (set-package-archives
-         (centaur-test-package-archives 'no-chart)))
-    ;; Select package archives manually
-    ;; Use `ido-completing-read' for better experience since
-    ;; `ivy-mode' is not available at this moment.
-    (set-package-archives
-     (intern
-      (ido-completing-read
-       "Select package archives: "
-       (mapcar #'symbol-name
-               (mapcar #'car centaur-package-archives-alist)))))))
+  ;; Test and select the fastest package archives
+  (message "Testing connection... Please wait a moment.")
+  (set-package-archives (centaur-test-package-archives 'no-chart)))
 
+;; Load `custom-file'
 (and (file-readable-p custom-file) (load custom-file))
 
 ;; Load custom-post file
 (defun load-custom-post-file ()
-"Load custom-post file."
-(cond ((file-exists-p centaur-custom-post-org-file)
-       (and (fboundp 'org-babel-load-file)
-            (org-babel-load-file centaur-custom-post-org-file)))
-      ((file-exists-p centaur-custom-post-file)
-       (load centaur-custom-post-file))))
+  "Load custom-post file."
+  (cond ((file-exists-p centaur-custom-post-org-file)
+         (and (fboundp 'org-babel-load-file)
+              (org-babel-load-file centaur-custom-post-org-file)))
+        ((file-exists-p centaur-custom-post-file)
+         (load centaur-custom-post-file))))
 (add-hook 'after-init-hook #'load-custom-post-file)
 
-;; HACK: DO NOT copy package-selected-packages to init/custom file forcibly.
+;; HACK: DO NOT save package-selected-packages to `custom-file'.
 ;; https://github.com/jwiegley/use-package/issues/383#issuecomment-247801751
-(defun my-save-selected-packages (&optional value)
+(defun my-package--save-selected-packages (&optional value)
   "Set `package-selected-packages' to VALUE but don't save to `custom-file'."
   (when value
-    (setq package-selected-packages value)))
-(advice-add 'package--save-selected-packages :override #'my-save-selected-packages)
+    (setq package-selected-packages value))
+  (unless after-init-time
+    (add-hook 'after-init-hook #'my-package--save-selected-packages)))
+(advice-add 'package--save-selected-packages :override #'my-package--save-selected-packages)
 
 ;; Set ELPA packages
 (set-package-archives centaur-package-archives nil nil t)
@@ -109,32 +98,44 @@
 
 ;; A modern Packages Menu
 (use-package paradox
-  :init
-  (setq paradox-execute-asynchronously t
-        paradox-github-token t
-        paradox-display-star-count nil)
-
-  ;; Replace default `list-packages'
-  (defun my-paradox-enable (&rest _)
-    "Enable paradox, overriding the default package-menu."
-    (paradox-enable))
-  (advice-add #'list-packages :before #'my-paradox-enable)
+  :custom-face
+  (paradox-archive-face ((t (:inherit font-lock-doc-face))))
+  (paradox-description-face ((t (:inherit completions-annotations))))
+  :hook (emacs-startup . paradox-enable)
+  :init (setq paradox-execute-asynchronously t
+              paradox-github-token t
+              paradox-display-star-count nil
+              paradox-status-face-alist ;
+              '(("built-in"   . font-lock-builtin-face)
+                ("available"  . success)
+                ("new"        . (success bold))
+                ("held"       . font-lock-constant-face)
+                ("disabled"   . font-lock-warning-face)
+                ("avail-obso" . font-lock-comment-face)
+                ("installed"  . font-lock-comment-face)
+                ("dependency" . font-lock-comment-face)
+                ("incompat"   . font-lock-comment-face)
+                ("deleted"    . font-lock-comment-face)
+                ("unsigned"   . font-lock-warning-face)))
   :config
-  (when (fboundp 'page-break-lines-mode)
-    (add-hook 'paradox-after-execute-functions
-              (lambda (&rest _)
-                (let ((buf (get-buffer-create "*Paradox Report*"))
+  (add-hook 'paradox-after-execute-functions
+            (lambda (_)
+              "Display `page-break-lines' in \"*Paradox Report*\" buffer."
+              (when (fboundp 'page-break-lines-mode)
+                (let ((buf (get-buffer "*Paradox Report*"))
                       (inhibit-read-only t))
-                  (with-current-buffer buf
-                    (page-break-lines-mode 1))))
-              t)))
+                  (when (buffer-live-p buf)
+                    (with-current-buffer buf
+                      (page-break-lines-mode 1))))))
+            t))
 
-;; Auto update packages
-(use-package auto-package-update
-  :init
-  (setq auto-package-update-delete-old-versions t
-        auto-package-update-hide-results t)
-  (defalias 'upgrade-packages #'auto-package-update-now))
+;; Update packages
+(unless (fboundp 'package-update-all)
+  (use-package auto-package-update
+    :init
+    (setq auto-package-update-delete-old-versions t
+          auto-package-update-hide-results t)
+    (defalias 'package-update-all #'auto-package-update-now)))
 
 (provide 'init-package)
 

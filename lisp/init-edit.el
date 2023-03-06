@@ -1,6 +1,6 @@
 ;; init-edit.el --- Initialize editing configurations.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2006-2021 Vincent Zhang
+;; Copyright (C) 2006-2022 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -9,7 +9,7 @@
 ;;
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
-;; published by the Free Software Foundation; either version 2, or
+;; published by the Free Software Foundation; either version 3, or
 ;; (at your option) any later version.
 ;;
 ;; This program is distributed in the hope that it will be useful,
@@ -31,6 +31,7 @@
 ;;; Code:
 
 (require 'init-const)
+(require 'init-funcs)
 
 ;; Delete selection if you insert
 (use-package delsel
@@ -47,6 +48,8 @@
   :init
   (with-eval-after-load 'org
     (bind-key "<s-return>" #'rect-hydra/body org-mode-map))
+  (with-eval-after-load 'wgrep
+    (bind-key "<C-return>" #'rect-hydra/body wgrep-mode-map))
   (with-eval-after-load 'wdired
     (bind-key "<C-return>" #'rect-hydra/body wdired-mode-map))
   :pretty-hydra
@@ -93,33 +96,6 @@
   (with-eval-after-load 'dired
     (bind-key "C-c C-z f" #'browse-url-of-file dired-mode-map)))
 
-(use-package xwidget
-  :ensure nil
-  :if (featurep 'xwidget-internal)
-  :bind (("C-c C-z w" . xwidget-webkit-browse-url)
-         :map xwidget-webkit-mode-map
-         ("?" . xwidget-hydra/body))
-  :pretty-hydra
-  ((:title (pretty-hydra-title "Webkit" 'faicon "chrome" :face 'all-the-icons-blue)
-    :color amaranth :quit-key "q")
-   ("Navigate"
-    (("b" xwidget-webkit-back "back")
-     ("f" xwidget-webkit-forward "forward")
-     ("r" xwidget-webkit-reload "refresh")
-     ("SPC" xwidget-webkit-scroll-up "scroll up")
-     ("DEL" xwidget-webkit-scroll-down "scroll down")
-     ("S-SPC" xwidget-webkit-scroll-down "scroll down"))
-    "Zoom"
-    (("+" xwidget-webkit-zoom-in "zoom in")
-     ("=" xwidget-webkit-zoom-in "zoom in")
-     ("-" xwidget-webkit-zoom-out "zoom out"))
-    "Misc"
-    (("g" xwidget-webkit-browse-url "browse url" :exit t)
-     ("u" xwidget-webkit-current-url "show url" :exit t)
-     ("w" xwidget-webkit-current-url-message-kill "copy url" :exit t)
-     ("h" describe-mode "help" :exit t)
-     ("Q" quit-window "quit" :exit t)))))
-
 ;; Click to browse URL or to send to e-mail address
 (use-package goto-addr
   :ensure nil
@@ -128,8 +104,8 @@
 
 ;; Jump to things in Emacs tree-style
 (use-package avy
-  :bind (("C-:" . avy-goto-char)
-         ("C-'" . avy-goto-char-2)
+  :bind (("C-:"   . avy-goto-char)
+         ("C-'"   . avy-goto-char-2)
          ("M-g f" . avy-goto-line)
          ("M-g w" . avy-goto-word-1)
          ("M-g e" . avy-goto-word-0))
@@ -149,20 +125,35 @@
   :defines (org-mode-map
             gnus-summary-mode-map
             gnus-article-mode-map
-            ert-results-mode-map)
+            ert-results-mode-map
+            paradox-menu-mode-map
+            elfeed-show-mode-map)
   :bind ("M-o" . ace-link-addr)
   :hook (after-init . ace-link-setup-default)
   :config
   (with-eval-after-load 'org
     (bind-key "M-o" #'ace-link-org org-mode-map))
+
   (with-eval-after-load 'gnus
     (bind-keys
      :map gnus-summary-mode-map
      ("M-o" . ace-link-gnus)
      :map gnus-article-mode-map
      ("M-o" . ace-link-gnus)))
+
   (with-eval-after-load 'ert
-    (bind-key "o" #'ace-link-help ert-results-mode-map)))
+    (bind-key "o" #'ace-link-help ert-results-mode-map))
+
+  (bind-keys
+   :map package-menu-mode-map
+   ("o" . ace-link-help)
+   :map process-menu-mode-map
+   ("o" . ace-link-help))
+  (with-eval-after-load 'paradox
+    (bind-key "o" #'ace-link-help paradox-menu-mode-map))
+
+  (with-eval-after-load 'elfeed
+    (bind-key "o" #'ace-link elfeed-show-mode-map)))
 
 ;; Jump to Chinese characters
 (use-package ace-pinyin
@@ -173,14 +164,14 @@
 (use-package aggressive-indent
   :diminish
   :hook ((after-init . global-aggressive-indent-mode)
-         ;; FIXME: Disable in big files due to the performance issues
+         ;; NOTE: Disable in large files due to the performance issues
          ;; https://github.com/Malabarba/aggressive-indent-mode/issues/73
          (find-file . (lambda ()
-                        (if (> (buffer-size) (* 3000 80))
-                            (aggressive-indent-mode -1)))))
+                        (when (too-long-file-p)
+                          (aggressive-indent-mode -1)))))
   :config
   ;; Disable in some modes
-  (dolist (mode '(asm-mode web-mode html-mode css-mode go-mode scala-mode prolog-inferior-mode))
+  (dolist (mode '(gitconfig-mode asm-mode web-mode html-mode css-mode go-mode scala-mode prolog-inferior-mode))
     (push mode aggressive-indent-excluded-modes))
 
   ;; Disable in some commands
@@ -204,14 +195,12 @@
   :hook (after-init . global-anzu-mode))
 
 ;; Redefine M-< and M-> for some modes
-(when emacs/>=25.3p
-  (use-package beginend
-    :diminish (beginend-mode beginend-global-mode)
-    :hook (after-init . beginend-global-mode)
-    :config
-    (mapc (lambda (pair)
-            (add-hook (car pair) (lambda () (diminish (cdr pair)))))
-          beginend-modes)))
+(use-package beginend
+  :diminish beginend-global-mode
+  :hook (after-init . beginend-global-mode)
+  :config (mapc (lambda (pair)
+                  (diminish (cdr pair)))
+                beginend-modes))
 
 ;; An all-in-one comment command to rule them all
 (use-package comment-dwim-2
@@ -220,7 +209,7 @@
 ;; Drag stuff (lines, words, region, etc...) around
 (use-package drag-stuff
   :diminish
-  :commands drag-stuff-define-keys
+  :autoload drag-stuff-define-keys
   :hook (after-init . drag-stuff-global-mode)
   :config
   (add-to-list 'drag-stuff-except-modes 'org-mode)
@@ -244,6 +233,9 @@
   :hook (after-init . electric-pair-mode)
   :init (setq electric-pair-inhibit-predicate 'electric-pair-conservative-inhibit))
 
+;; Visual `align-regexp'
+(use-package ialign)
+
 ;; Edit multiple regions in the same way simultaneously
 (use-package iedit
   :defines desktop-minor-mode-table
@@ -264,7 +256,8 @@
 
 ;; Multiple cursors
 (use-package multiple-cursors
-  :bind (("C-S-c C-S-c"   . mc/edit-lines)
+  :bind (("C-c m" . multiple-cursors-hydra/body)
+         ("C-S-c C-S-c"   . mc/edit-lines)
          ("C->"           . mc/mark-next-like-this)
          ("C-<"           . mc/mark-previous-like-this)
          ("C-c C-<"       . mc/mark-all-like-this)
@@ -273,7 +266,27 @@
          ("s-<mouse-1>"   . mc/add-cursor-on-click)
          ("C-S-<mouse-1>" . mc/add-cursor-on-click)
          :map mc/keymap
-         ("C-|" . mc/vertical-align-with-space)))
+         ("C-|" . mc/vertical-align-with-space))
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Multiple Cursors" 'material "border_all" :height 1.2 :v-adjust -0.225)
+    :color amaranth :quit-key ("q" "C-g"))
+   ("Up"
+	(("p" mc/mark-previous-like-this "prev")
+	 ("P" mc/skip-to-previous-like-this "skip")
+	 ("M-p" mc/unmark-previous-like-this "unmark")
+	 ("|" mc/vertical-align "align with input CHAR"))
+    "Down"
+    (("n" mc/mark-next-like-this "next")
+	 ("N" mc/skip-to-next-like-this "skip")
+	 ("M-n" mc/unmark-next-like-this "unmark"))
+    "Misc"
+    (("l" mc/edit-lines "edit lines" :exit t)
+	 ("a" mc/mark-all-like-this "mark all" :exit t)
+	 ("s" mc/mark-all-in-region-regexp "search" :exit t)
+     ("<mouse-1>" mc/add-cursor-on-click "click"))
+    "% 2(mc/num-cursors) cursor%s(if (> (mc/num-cursors) 1) \"s\" \"\")"
+	(("0" mc/insert-numbers "insert numbers" :exit t)
+	 ("A" mc/insert-letters "insert letters" :exit t)))))
 
 ;; Smartly select region, rectangle, multi cursors
 (use-package smart-region
@@ -285,7 +298,7 @@
   :diminish
   :if (executable-find "aspell")
   :hook (((text-mode outline-mode) . flyspell-mode)
-         (prog-mode . flyspell-prog-mode)
+         ;; (prog-mode . flyspell-prog-mode)
          (flyspell-mode . (lambda ()
                             (dolist (key '("C-;" "C-," "C-."))
                               (unbind-key key flyspell-mode-map)))))
@@ -304,7 +317,8 @@
 (use-package hungry-delete
   :diminish
   :hook (after-init . global-hungry-delete-mode)
-  :init (setq hungry-delete-except-modes
+  :init (setq hungry-delete-chars-to-skip " \t\f\v"
+              hungry-delete-except-modes
               '(help-mode minibuffer-mode minibuffer-inactive-mode calc-mode)))
 
 ;; Framework for mode-specific buffer indexes
@@ -361,32 +375,88 @@
   :hook ((prog-mode . subword-mode)
          (minibuffer-setup . subword-mode)))
 
-;; Hideshow
+;; Flexible text folding
 (use-package hideshow
   :ensure nil
   :diminish hs-minor-mode
-  :bind (:map hs-minor-mode-map
-         ("C-`" . hs-toggle-hiding)))
-
-;; Flexible text folding
-(use-package origami
   :pretty-hydra
-  ((:title (pretty-hydra-title "Origami" 'octicon "fold" :height 1.1 :v-adjust -0.05)
-    :color amaranth :quit-key "q")
-   ("Node"
-    ((":" origami-recursively-toggle-node "toggle recursively")
-     ("a" origami-toggle-all-nodes "toggle all")
-     ("t" origami-toggle-node "toggle current")
-     ("o" origami-show-only-node "only show current"))
-    "Actions"
-    (("u" origami-undo "undo")
-     ("d" origami-redo "redo")
-     ("r" origami-reset "reset"))))
-  :bind (:map origami-mode-map
-         ("C-`" . origami-hydra/body))
-  :hook (prog-mode . origami-mode)
-  :init (setq origami-show-fold-header t)
-  :config (face-spec-reset-face 'origami-fold-header-face))
+  ((:title (pretty-hydra-title "HideShow" 'octicon "fold" :height 1.1 :v-adjust -0.05)
+    :color amaranth :quit-key ("q" "C-g"))
+   ("Fold"
+    (("t" hs-toggle-all "toggle all")
+     ("a" hs-show-all "show all")
+     ("i" hs-hide-all "hide all")
+     ("g" hs-toggle-hiding "toggle hiding")
+     ("c" hs-cycle "cycle block")
+     ("s" hs-show-block "show block")
+     ("h" hs-hide-block "hide block")
+     ("l" hs-hide-level "hide level"))
+    "Move"
+    (("C-a" mwim-beginning-of-code-or-line "⭰")
+     ("C-e" mwim-end-of-code-or-line "⭲")
+     ("C-b" backward-char "←")
+     ("C-n" next-line "↓")
+     ("C-p" previous-line "↑")
+     ("C-f" forward-char "→")
+     ("C-v" pager-page-down "↘")
+     ("M-v" pager-page-up "↖")
+     ("M-<" beginning-of-buffer "⭶")
+     ("M->" end-of-buffer "⭸"))))
+  :bind (:map hs-minor-mode-map
+         ("C-~" . hideshow-hydra/body)
+         ("C-S-<escape>" . hideshow-hydra/body))
+  :hook (prog-mode . hs-minor-mode)
+  :config
+  ;; More functions
+  ;; @see https://karthinks.com/software/simple-folding-with-hideshow/
+  (defun hs-cycle (&optional level)
+    (interactive "p")
+    (let (message-log-max
+          (inhibit-message t))
+      (if (= level 1)
+          (pcase last-command
+            ('hs-cycle
+             (hs-hide-level 1)
+             (setq this-command 'hs-cycle-children))
+            ('hs-cycle-children
+             (save-excursion (hs-show-block))
+             (setq this-command 'hs-cycle-subtree))
+            ('hs-cycle-subtree
+             (hs-hide-block))
+            (_
+             (if (not (hs-already-hidden-p))
+                 (hs-hide-block)
+               (hs-hide-level 1)
+               (setq this-command 'hs-cycle-children))))
+        (hs-hide-level level)
+        (setq this-command 'hs-hide-level))))
+
+  (defun hs-toggle-all ()
+    "Toggle hide/show all."
+    (interactive)
+    (pcase last-command
+      ('hs-toggle-all
+       (save-excursion (hs-show-all))
+       (setq this-command 'hs-global-show))
+      (_ (hs-hide-all))))
+
+  ;; Display line counts
+  (defun hs-display-code-line-counts (ov)
+    "Display line counts when hiding codes."
+    (when (eq 'code (overlay-get ov 'hs))
+      (overlay-put ov 'display
+                   (concat
+                    " "
+                    (propertize
+                     (if (char-displayable-p ?⏷) "⏷" "...")
+                     'face 'shadow)
+                    (propertize
+                     (format " (%d lines)"
+                             (count-lines (overlay-start ov)
+                                          (overlay-end ov)))
+                     'face '(:inherit shadow :height 0.8))
+                    " "))))
+  (setq hs-set-up-overlay #'hs-display-code-line-counts))
 
 ;; Open files as another user
 (unless sys/win32p
@@ -396,6 +466,10 @@
 (use-package fancy-narrow
   :diminish
   :hook (after-init . fancy-narrow-mode))
+
+;; Hanlde minified code
+(use-package so-long
+  :hook (after-init . global-so-long-mode))
 
 (provide 'init-edit)
 

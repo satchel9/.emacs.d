@@ -1,6 +1,6 @@
 ;; init-dashboard.el --- Initialize dashboard configurations.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2018-2021 Vincent Zhang
+;; Copyright (C) 2018-2022 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -9,7 +9,7 @@
 ;;
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
-;; published by the Free Software Foundation; either version 2, or
+;; published by the Free Software Foundation; either version 3, or
 ;; (at your option) any later version.
 ;;
 ;; This program is distributed in the hope that it will be useful,
@@ -32,9 +32,9 @@
 
 (require 'init-const)
 (require 'init-custom)
+(require 'init-funcs)
 
 ;; Dashboard
-(unless emacs/>=25.3p (setq centaur-dashboard nil))
 (when centaur-dashboard
   (use-package dashboard
     :diminish dashboard-mode
@@ -45,7 +45,7 @@
     :custom-face (dashboard-heading ((t (:inherit (font-lock-string-face bold)))))
     :pretty-hydra
     ((:title (pretty-hydra-title "Dashboard" 'material "dashboard" :height 1.2 :v-adjust -0.2)
-      :color pink :quit-key "q")
+      :color pink :quit-key ("q" "C-g"))
      ("Navigator"
       (("U" update-config-and-packages "update" :exit t)
        ("H" browse-homepage "homepage" :exit t)
@@ -79,7 +79,12 @@
            ("q" . quit-dashboard)
            ("h" . dashboard-hydra/body)
            ("?" . dashboard-hydra/body))
-    :hook (dashboard-mode . (lambda () (setq-local frame-title-format nil)))
+    :hook (dashboard-mode . (lambda ()
+                              ;; No title
+                              (setq-local frame-title-format nil)
+                              ;; Enable `page-break-lines-mode'
+                              (when (fboundp 'page-break-lines-mode)
+                                (page-break-lines-mode 1))))
     :init
     (setq dashboard-banner-logo-title "CENTAUR EMACS - Enjoy Programming & Writing"
           dashboard-startup-banner (or centaur-logo 'official)
@@ -93,15 +98,14 @@
           dashboard-set-init-info t
           dashboard-set-file-icons centaur-icon
           dashboard-set-heading-icons centaur-icon
-          dashboard-heading-icons '((recents   . "file-text")
+          dashboard-heading-icons '((recents   . "history")
                                     (bookmarks . "bookmark")
                                     (agenda    . "calendar")
                                     (projects  . "briefcase")
                                     (registers . "database"))
 
           dashboard-set-footer t
-          dashboard-footer (format "Powered by Vincent Zhang, %s" (format-time-string "%Y"))
-          dashboard-footer-icon (cond ((icons-displayable-p)
+          dashboard-footer-icon (cond ((icon-displayable-p)
                                        (all-the-icons-faicon "heart"
                                                              :height 1.1
                                                              :v-adjust -0.05
@@ -111,23 +115,23 @@
 
           dashboard-set-navigator t
           dashboard-navigator-buttons
-          `(((,(when (icons-displayable-p)
+          `(((,(when (icon-displayable-p)
                  (all-the-icons-octicon "mark-github" :height 1.1 :v-adjust 0.0))
               "Homepage" "Browse homepage"
               (lambda (&rest _) (browse-url centaur-homepage)))
-             (,(when (icons-displayable-p)
+             (,(when (icon-displayable-p)
                  (all-the-icons-material "restore" :height 1.35 :v-adjust -0.24))
               "Restore" "Restore previous session"
               (lambda (&rest _) (restore-previous-session)))
-             (,(when (icons-displayable-p)
+             (,(when (icon-displayable-p)
                  (all-the-icons-octicon "tools" :height 1.0 :v-adjust 0.0))
               "Settings" "Open custom file"
               (lambda (&rest _) (find-file custom-file)))
-             (,(when (icons-displayable-p)
+             (,(when (icon-displayable-p)
                  (all-the-icons-material "update" :height 1.35 :v-adjust -0.24))
               "Update" "Update Centaur Emacs"
               (lambda (&rest _) (centaur-update)))
-             (,(if (icons-displayable-p)
+             (,(if (icon-displayable-p)
                    (all-the-icons-faicon "question" :height 1.2 :v-adjust -0.1)
                  "?")
               "" "Help (?/h)"
@@ -136,39 +140,15 @@
 
     (dashboard-setup-startup-hook)
     :config
-    ;; WORKAROUND: fix differnct background color of the banner image.
-    ;; @see https://github.com/emacs-dashboard/emacs-dashboard/issues/203
-    (defun my-dashboard-insert-image-banner (banner)
-      "Display an image BANNER."
-      (when (file-exists-p banner)
-        (let* ((title dashboard-banner-logo-title)
-               (spec (create-image banner))
-               (size (image-size spec))
-               (width (car size))
-               (left-margin (max 0 (floor (- dashboard-banner-length width) 2))))
-          (goto-char (point-min))
-          (insert "\n")
-          (insert (make-string left-margin ?\ ))
-          (insert-image spec)
-          (insert "\n\n")
-          (when title
-            (dashboard-center-line title)
-            (insert (format "%s\n\n" (propertize title 'face 'dashboard-banner-logo-title)))))))
-    (advice-add #'dashboard-insert-image-banner :override #'my-dashboard-insert-image-banner)
-
-    ;; FIXME: Insert copyright
+    ;; Insert copyright
     ;; @see https://github.com/emacs-dashboard/emacs-dashboard/issues/219
     (defun my-dashboard-insert-copyright ()
       "Insert copyright in the footer."
-      (when dashboard-footer
-        (insert "\n  ")
-        (dashboard-center-line dashboard-footer)
-        (insert (propertize dashboard-footer 'face 'font-lock-comment-face))
-        (insert "\n")))
+      (when dashboard-set-footer
+        (dashboard-insert-center
+         (propertize (format "\nPowered by Vincent Zhang, %s\n" (format-time-string "%Y"))
+                     'face 'font-lock-comment-face))))
     (advice-add #'dashboard-insert-footer :after #'my-dashboard-insert-copyright)
-
-    (defvar dashboard-recover-layout-p nil
-      "Wether recovers the layout.")
 
     (defun restore-previous-session ()
       "Restore the previous session."
@@ -206,25 +186,26 @@
       (let ((func (local-key-binding "m")))
         (and func (funcall func))))
 
+    (defvar dashboard-recover-layout-p nil
+      "Wether recovers the layout.")
+
     (defun open-dashboard ()
       "Open the *dashboard* buffer and jump to the first widget."
       (interactive)
       ;; Check if need to recover layout
-      (if (> (length (window-list-1))
-             ;; exclude `treemacs' window
-             (if (and (fboundp 'treemacs-current-visibility)
-                      (eq (treemacs-current-visibility) 'visible))
-                 2
-               1))
+      (if (length> (window-list-1)
+                   ;; exclude `treemacs' window
+                   (if (and (fboundp 'treemacs-current-visibility)
+                            (eq (treemacs-current-visibility) 'visible))
+                       2
+                     1))
           (setq dashboard-recover-layout-p t))
 
+      ;; Display dashboard in maximized window
       (delete-other-windows)
 
       ;; Refresh dashboard buffer
-      (when (get-buffer dashboard-buffer-name)
-        (kill-buffer dashboard-buffer-name))
-      (dashboard-insert-startupify-lists)
-      (switch-to-buffer dashboard-buffer-name)
+      (dashboard-refresh-buffer)
 
       ;; Jump to the first section
       (dashboard-goto-recent-files))
@@ -233,10 +214,9 @@
       "Quit dashboard window."
       (interactive)
       (quit-window t)
-      (when (and dashboard-recover-layout-p
-                 (bound-and-true-p winner-mode))
-        (winner-undo)
-        (setq dashboard-recover-layout-p nil)))))
+      (and dashboard-recover-layout-p
+           (and (bound-and-true-p winner-mode) (winner-undo))
+           (setq dashboard-recover-layout-p nil)))))
 
 (provide 'init-dashboard)
 

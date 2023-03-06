@@ -1,10 +1,10 @@
 ;;; init.el --- A Fancy and Fast Emacs Configuration.	-*- lexical-binding: t no-byte-compile: t -*-
 
-;; Copyright (C) 2006-2021 Vincent Zhang
+;; Copyright (C) 2006-2022 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
-;; Version: 5.9.0
+;; Version: 6.0.0
 ;; Keywords: .emacs.d centaur
 
 ;;
@@ -28,7 +28,7 @@
 ;;
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
-;; published by the Free Software Foundation; either version 2, or
+;; published by the Free Software Foundation; either version 3, or
 ;; (at your option) any later version.
 ;;
 ;; This program is distributed in the hope that it will be useful,
@@ -50,33 +50,34 @@
 
 ;;; Code:
 
-(when (version< emacs-version "25.1")
-  (error "This requires Emacs 25.1 and above!"))
+(when (version< emacs-version "26.1")
+  (error "This requires Emacs 26.1 and above!"))
 
+;;
 ;; Speed up startup
+;;
+
+;; Defer garbage collection further back in the startup process
+(setq gc-cons-threshold most-positive-fixnum)
+
+;; Prevent flash of unstyled modeline at startup
+(setq-default mode-line-format nil)
+
+;; Don't pass case-insensitive to `auto-mode-alist'
 (setq auto-mode-case-fold nil)
 
-(unless (or (daemonp) noninteractive)
-  (let ((old-file-name-handler-alist file-name-handler-alist))
-    ;; If `file-name-handler-alist' is nil, no 256 colors in TUI
-    ;; @see https://emacs-china.org/t/spacemacs-centaur-emacs/3802/839
-    (setq file-name-handler-alist
-          (unless (display-graphic-p)
-            '(("\\(?:\\.tzst\\|\\.zst\\|\\.dz\\|\\.txz\\|\\.xz\\|\\.lzma\\|\\.lz\\|\\.g?z\\|\\.\\(?:tgz\\|svgz\\|sifz\\)\\|\\.tbz2?\\|\\.bz2\\|\\.Z\\)\\(?:~\\|\\.~[-[:alnum:]:#@^._]+\\(?:~[[:digit:]]+\\)?~\\)?\\'" . jka-compr-handler))))
+(unless (or (daemonp) noninteractive init-file-debug)
+  ;; Suppress file handlers operations at startup
+  ;; `file-name-handler-alist' is consulted on each call to `require' and `load'
+  (let ((old-value file-name-handler-alist))
+    (setq file-name-handler-alist nil)
+    (set-default-toplevel-value 'file-name-handler-alist file-name-handler-alist)
     (add-hook 'emacs-startup-hook
               (lambda ()
                 "Recover file name handlers."
                 (setq file-name-handler-alist
-                      (delete-dups (append file-name-handler-alist
-                                           old-file-name-handler-alist)))))))
-
-(setq gc-cons-threshold most-positive-fixnum
-      gc-cons-percentage 0.5)
-(add-hook 'emacs-startup-hook
-          (lambda ()
-            "Recover GC values after startup."
-            (setq gc-cons-threshold 800000
-                  gc-cons-percentage 0.1)))
+                      (delete-dups (append file-name-handler-alist old-value))))
+              101)))
 
 ;; Load path
 ;; Optimize: Force "lisp"" and "site-lisp" at the head to reduce the startup time.
@@ -86,7 +87,10 @@
     (push (expand-file-name dir user-emacs-directory) load-path)))
 
 (defun add-subdirs-to-load-path (&rest _)
-  "Add subdirectories to `load-path'."
+  "Add subdirectories to `load-path'.
+
+Don't put large files in `site-lisp' directory, e.g. EAF.
+Otherwise the startup will be very slow. "
   (let ((default-directory (expand-file-name "site-lisp" user-emacs-directory)))
     (normal-top-level-add-subdirs-to-load-path)))
 
@@ -100,7 +104,7 @@
 (require 'init-package)
 
 ;; Preferences
-(require 'init-basic)
+(require 'init-base)
 (require 'init-hydra)
 
 (require 'init-ui)
@@ -127,7 +131,9 @@
 (require 'init-org)
 (require 'init-reader)
 
+(require 'init-dict)
 (require 'init-docker)
+(require 'init-player)
 (require 'init-utils)
 
 ;; Programming

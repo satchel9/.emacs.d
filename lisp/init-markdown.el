@@ -1,6 +1,6 @@
 ;; init-markdown.el --- Initialize markdown configurations.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2009-2021 Vincent Zhang
+;; Copyright (C) 2009-2022 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -9,7 +9,7 @@
 ;;
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
-;; published by the Free Software Foundation; either version 2, or
+;; published by the Free Software Foundation; either version 3, or
 ;; (at your option) any later version.
 ;;
 ;; This program is distributed in the hope that it will be useful,
@@ -29,6 +29,9 @@
 ;;
 
 ;;; Code:
+
+(require 'init-const)
+(require 'init-funcs)
 
 (use-package markdown-mode
   :mode (("README\\.md\\'" . gfm-mode))
@@ -81,16 +84,16 @@ mermaid.initialize({
   ;; `multimarkdown' is necessary for `highlight.js' and `mermaid.js'
   (when (executable-find "multimarkdown")
     (setq markdown-command "multimarkdown"))
-
-  ;; Use `which-key' instead
-  (with-no-warnings
-    (advice-add #'markdown--command-map-prompt :override #'ignore)
-    (advice-add #'markdown--style-map-prompt   :override #'ignore))
   :config
+  ;; Support `mermaid'
   (add-to-list 'markdown-code-lang-modes '("mermaid" . mermaid-mode))
 
-  ;; Preview with built-in webkit
   (with-no-warnings
+    ;; Use `which-key' instead
+    (advice-add #'markdown--command-map-prompt :override #'ignore)
+    (advice-add #'markdown--style-map-prompt   :override #'ignore)
+
+    ;; Preview with built-in webkit
     (defun my-markdown-export-and-preview (fn)
       "Preview with `xwidget' if applicable, otherwise with the default browser."
       (if (featurep 'xwidget-internal)
@@ -101,9 +104,13 @@ mermaid.initialize({
   ;; Preview via `grip'
   ;; Install: pip install grip
   (use-package grip-mode
+    :defines org-mode-map
     :bind (:map markdown-mode-command-map
            ("g" . grip-mode))
     :init
+    (with-eval-after-load 'org
+      (bind-key "C-c C-g" #'grip-mode org-mode-map))
+
     (setq grip-update-after-change nil)
     (when-let ((credential (auth-source-user-and-password "api.github.com")))
       (setq grip-github-user (car credential)
@@ -111,8 +118,28 @@ mermaid.initialize({
 
   ;; Table of contents
   (use-package markdown-toc
+    :diminish
     :bind (:map markdown-mode-command-map
-           ("r" . markdown-toc-generate-or-refresh-toc))))
+           ("r" . markdown-toc-generate-or-refresh-toc))
+    :hook (markdown-mode . markdown-toc-mode)
+    :init (setq markdown-toc-indentation-space 2
+                markdown-toc-header-toc-title "\n## Table of Contents"
+                markdown-toc-user-toc-structure-manipulation-fn 'cdr)
+    :config
+    (with-no-warnings
+      (define-advice markdown-toc-generate-toc (:around (fn &rest args) lsp)
+        "Generate or refresh toc after disabling lsp."
+        (cond
+         ((bound-and-true-p lsp-managed-mode)
+          (lsp-managed-mode -1)
+          (apply fn args)
+          (lsp-managed-mode 1))
+         ((bound-and-true-p eglot--manage-mode)
+          (eglot--manage-mode -1)
+          (apply fn args)
+          (eglot--manage-mode 1))
+         (t
+          (apply fn args)))))))
 
 (provide 'init-markdown)
 

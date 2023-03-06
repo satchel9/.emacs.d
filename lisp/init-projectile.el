@@ -1,6 +1,6 @@
 ;; init-projectile.el --- Initialize projectile configurations.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2010-2021 Vincent Zhang
+;; Copyright (C) 2010-2022 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -9,7 +9,7 @@
 ;;
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
-;; published by the Free Software Foundation; either version 2, or
+;; published by the Free Software Foundation; either version 3, or
 ;; (at your option) any later version.
 ;;
 ;; This program is distributed in the hope that it will be useful,
@@ -36,7 +36,7 @@
 (use-package projectile
   :diminish
   :bind (:map projectile-mode-map
-         ("s-t" . projectile-find-file) ; `cmd-t' or `super-t'
+         ("s-t"   . projectile-find-file) ; `cmd-t' or `super-t'
          ("C-c p" . projectile-command-map))
   :hook (after-init . projectile-mode)
   :init
@@ -44,7 +44,7 @@
         projectile-sort-order 'recentf
         projectile-use-git-grep t)
   :config
-  ;; Use the faster searcher to handle project files: ripgrep `rg'.
+  ;; Use the faster searcher to handle project files
   (when (and (not (executable-find "fd"))
              (executable-find "rg"))
     (setq projectile-generic-command
@@ -59,7 +59,7 @@
       (setq projectile-indexing-method 'alien
             projectile-enable-caching nil))
 
-    ;; FIXME: too slow while getting submodule files on Windows
+    ;; HACK: too slow while getting submodule files on Windows
     (setq projectile-git-submodule-command nil))
 
   ;; Support Perforce project

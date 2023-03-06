@@ -1,6 +1,6 @@
 ;; init-vcs.el --- Initialize version control system configurations.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2016-2021 Vincent Zhang
+;; Copyright (C) 2016-2022 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -9,7 +9,7 @@
 ;;
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
-;; published by the Free Software Foundation; either version 2, or
+;; published by the Free Software Foundation; either version 3, or
 ;; (at your option) any later version.
 ;;
 ;; This program is distributed in the hope that it will be useful,
@@ -41,11 +41,6 @@
   (when sys/win32p
     (setenv "GIT_ASKPASS" "git-gui--askpass"))
 
-  (when (fboundp 'transient-append-suffix)
-    ;; Add switch: --tags
-    (transient-append-suffix 'magit-fetch
-      "-p" '("-t" "Fetch all tags" ("-t" "--tags"))))
-
   ;; Exterminate Magit buffers
   (with-no-warnings
     (defun my-magit-kill-buffers (&rest _)
@@ -64,87 +59,86 @@
     (setq magit-bury-buffer-function #'my-magit-kill-buffers))
 
   ;; Access Git forges from Magit
-  (when (executable-find "cc")
-    (use-package forge
-      :demand
-      :init
-      (setq forge-topic-list-columns
-            '(("#" 5 forge-topic-list-sort-by-number (:right-align t) number nil)
-              ("Title" 60 t nil title  nil)
-              ("State" 6 t nil state nil)
-              ("Updated" 10 t nil updated nil)))))
+  (use-package forge
+    :demand t
+    :defines (forge-database-connector forge-topic-list-columns)
+    :custom-face
+    (forge-topic-label ((t (:inherit variable-pitch :height 0.9 :width condensed :weight regular :underline nil))))
+    :init
+    (setq forge-database-connector (if (and (require 'emacsql-sqlite-builtin nil t)
+                                            (functionp 'emacsql-sqlite-builtin)
+                                            (functionp 'sqlite-open))
+                                       'sqlite-builtin
+                                     'sqlite)
+          forge-topic-list-columns
+          '(("#" 5 forge-topic-list-sort-by-number (:right-align t) number nil)
+            ("Title" 60 t nil title  nil)
+            ("State" 6 t nil state nil)
+            ("Updated" 10 t nil updated nil))))
 
   ;; Show TODOs in magit
-  (when emacs/>=25.2p
-    (use-package magit-todos
-      :bind ("C-c C-t" . ivy-magit-todos)
-      :init
-      (setq magit-todos-nice (if (executable-find "nice") t nil))
-      (let ((inhibit-message t))
-        (magit-todos-mode 1))
-      :config
+  (use-package magit-todos
+    :defines magit-todos-nice
+    :commands magit-todos--scan-with-git-grep
+    :bind ("C-c C-t" . ivy-magit-todos)
+    :init
+    (setq magit-todos-nice (if (executable-find "nice") t nil))
+    (setq magit-todos-scanner #'magit-todos--scan-with-git-grep)
+    (let ((inhibit-message t))
+      (magit-todos-mode 1))
+    :config
+    (with-eval-after-load 'magit-status
       (transient-append-suffix 'magit-status-jump '(0 0 -1)
-        '("T " "Todos" magit-todos-jump-to-todos)))))
+        '("t " "Todos" magit-todos-jump-to-todos)))))
 
 ;; Display transient in child frame
-(when (childframe-workable-p)
+(when (childframe-completion-workable-p)
   (use-package transient-posframe
     :diminish
     :custom-face
     (transient-posframe ((t (:inherit tooltip))))
-    (transient-posframe-border ((t (:background ,(face-foreground 'font-lock-comment-face nil t)))))
+    (transient-posframe-border ((t (:inherit posframe-border :background unspecified))))
     :hook (after-init . transient-posframe-mode)
     :init
     (setq transient-posframe-border-width 3
-          transient-posframe-min-height 24
-          transient-posframe-min-width nil
+          transient-posframe-min-height nil
+          transient-posframe-min-width 80
+          transient-posframe-poshandler 'posframe-poshandler-frame-center
           transient-posframe-parameters '((left-fringe . 8)
                                           (right-fringe . 8)))
     :config
-    (add-hook 'after-load-theme-hook
-              (lambda ()
-                (custom-set-faces
-                 '(transient-posframe ((t (:inherit tooltip))))
-                 `(transient-posframe-border ((t (:background ,(face-foreground 'font-lock-comment-face nil t))))))))
-
     (with-no-warnings
-      (defun my-transient-posframe--show-buffer (buffer _alist)
-        "Show BUFFER in posframe and we do not use _ALIST at this period."
-        (when (posframe-workable-p)
-          (let ((posframe (posframe-show
-                           buffer
-			               :font transient-posframe-font
-			               :position (point)
-			               :poshandler transient-posframe-poshandler
-			               :background-color (face-attribute 'transient-posframe :background nil t)
-			               :foreground-color (face-attribute 'transient-posframe :foreground nil t)
-			               :min-width (or transient-posframe-min-width (round (* (frame-width) 0.618)))
-			               :min-height transient-posframe-min-height
-                           :lines-truncate t
-			               :internal-border-width transient-posframe-border-width
-			               :internal-border-color (face-attribute 'transient-posframe-border :background nil t)
-			               :override-parameters transient-posframe-parameters)))
-            (frame-selected-window posframe))))
-      (advice-add #'transient-posframe--show-buffer :override #'my-transient-posframe--show-buffer)
-
-      (defun my-transient-posframe--render-buffer ()
-        (with-current-buffer (get-buffer-create transient--buffer-name)
-          (goto-char (point-min))
-          (insert (propertize "\n" 'face '(:height 0.3)))
-          (goto-char (point-max))
-          (insert (propertize "\n\n" 'face '(:height 0.3)))))
-      (advice-add #'transient--show :after #'my-transient-posframe--render-buffer))))
+      (defun my-transient-posframe--hide ()
+        "Hide transient posframe."
+        (posframe-hide transient--buffer-name))
+      (advice-add #'transient-posframe--delete :override #'my-transient-posframe--hide))))
 
 ;; Walk through git revisions of a file
 (use-package git-timemachine
   :custom-face
-  (git-timemachine-minibuffer-author-face ((t (:inherit success))))
-  (git-timemachine-minibuffer-detail-face ((t (:inherit warning))))
+  (git-timemachine-minibuffer-author-face ((t (:inherit success :foreground unspecified))))
+  (git-timemachine-minibuffer-detail-face ((t (:inherit warning :foreground unspecified))))
   :bind (:map vc-prefix-map
          ("t" . git-timemachine))
-  :hook (before-revert . (lambda ()
-                           (when (bound-and-true-p git-timemachine-mode)
-                             (user-error "Cannot revert the timemachine buffer")))))
+  :hook ((git-timemachine-mode . (lambda ()
+                                   "Improve `git-timemachine' buffers."
+                                   ;; Display different colors in mode-line
+                                   (if (facep 'mode-line-active)
+                                       (face-remap-add-relative 'mode-line-active 'custom-state)
+                                     (face-remap-add-relative 'mode-line 'custom-state))
+
+                                   ;; Highlight symbols in elisp
+                                   (and (derived-mode-p 'emacs-lisp-mode)
+                                        (fboundp 'highlight-defined-mode)
+                                        (highlight-defined-mode t))
+
+                                   ;; Display line numbers
+                                   (and (derived-mode-p 'prog-mode 'yaml-mode)
+                                        (fboundp 'display-line-numbers-mode)
+                                        (display-line-numbers-mode t))))
+         (before-revert . (lambda ()
+                            (when (bound-and-true-p git-timemachine-mode)
+                              (user-error "Cannot revert the timemachine buffer"))))))
 
 ;; Pop up last commit information of current line
 (use-package git-messenger
@@ -214,8 +208,10 @@
                                                 (propertize "\n" 'face '(:height 0.3)))
                                 :left-fringe 8
                                 :right-fringe 8
+                                :max-width (round (* (frame-width) 0.62))
+                                :max-height (round (* (frame-height) 0.62))
                                 :internal-border-width 1
-                                :internal-border-color (face-foreground 'font-lock-comment-face nil t)
+                                :internal-border-color (face-background 'posframe-border nil t)
                                 :background-color (face-background 'tooltip nil t))
                  (unwind-protect
                      (push (read-event) unread-command-events)
@@ -238,7 +234,7 @@
   :diminish
   :pretty-hydra
   ((:title (pretty-hydra-title "Smerge" 'octicon "diff")
-    :color pink :quit-key "q")
+    :color pink :quit-key ("q" "C-g"))
    ("Move"
     (("n" smerge-next "next")
      ("p" smerge-prev "previous"))
@@ -273,17 +269,15 @@
                             (smerge-mode 1)))))
          (magit-diff-visit-file . (lambda ()
                                     (when smerge-mode
-                                      (hydra-smerge/body))))))
+                                      (smerge-mode-hydra/body))))))
 
 ;; Open github/gitlab/bitbucket page
 (use-package browse-at-remote
   :bind (:map vc-prefix-map
          ("B" . browse-at-remote)))
 
-;; Git related modes
-(use-package gitattributes-mode)
-(use-package gitconfig-mode)
-(use-package gitignore-mode)
+;; Git configuration modes
+(use-package git-modes)
 
 (provide 'init-vcs)
 

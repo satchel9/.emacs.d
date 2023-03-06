@@ -1,6 +1,6 @@
 ;; init-dired.el --- Initialize dired configurations.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2006-2021 Vincent Zhang
+;; Copyright (C) 2006-2022 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -9,7 +9,7 @@
 ;;
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
-;; published by the Free Software Foundation; either version 2, or
+;; published by the Free Software Foundation; either version 3, or
 ;; (at your option) any later version.
 ;;
 ;; This program is distributed in the hope that it will be useful,
@@ -52,17 +52,16 @@
       (setq insert-directory-program "gls")))
 
   (when (or (and sys/macp (executable-find "gls"))
-            (and (not sys/macp) (executable-find "ls")))
+            (and (or sys/linuxp sys/cygwinp) (executable-find "ls")))
     ;; Using `insert-directory-program'
     (setq ls-lisp-use-insert-directory-program t)
-
     ;; Show directory first
-    (setq dired-listing-switches "-alh --group-directories-first")
+    (setq dired-listing-switches "-alh --group-directories-first"))
 
-    ;; Quick sort dired buffers via hydra
-    (use-package dired-quick-sort
-      :bind (:map dired-mode-map
-             ("S" . hydra-dired-quick-sort/body))))
+  ;; Quick sort dired buffers via hydra
+  (use-package dired-quick-sort
+    :bind (:map dired-mode-map
+           ("S" . hydra-dired-quick-sort/body)))
 
   ;; Show git info in dired
   (use-package dired-git-info
@@ -74,54 +73,39 @@
     :bind (:map dired-mode-map
            ("C-c C-r" . dired-rsync)))
 
-  ;; Colourful dired
+  ;; Colorful dired
   (use-package diredfl
-    :init (diredfl-global-mode 1))
+    :hook (dired-mode . diredfl-mode))
 
   ;; Shows icons
   (use-package all-the-icons-dired
     :diminish
-    :if (icons-displayable-p)
-    :hook (dired-mode . all-the-icons-dired-mode)
+    :hook (dired-mode . (lambda ()
+                          (when (icon-displayable-p)
+                            (all-the-icons-dired-mode))))
     :init (setq all-the-icons-dired-monochrome nil)
     :config
     (with-no-warnings
-      (defun my-all-the-icons-dired--refresh ()
-        "Display the icons of files in a dired buffer."
-        (all-the-icons-dired--remove-all-overlays)
-        ;; NOTE: don't display icons it too many items
-        (if (<= (count-lines (point-min) (point-max)) 1000)
-            (save-excursion
-              (goto-char (point-min))
-              (while (not (eobp))
-                (when (dired-move-to-filename nil)
-                  (let ((case-fold-search t))
-                    (when-let* ((file (dired-get-filename 'relative 'noerror))
-                                (icon (if (file-directory-p file)
-                                          (all-the-icons-icon-for-dir
-                                           file
-                                           :face 'all-the-icons-dired-dir-face
-                                           :height 0.9
-                                           :v-adjust all-the-icons-dired-v-adjust)
-                                        (apply #'all-the-icons-icon-for-file
-                                               file
-                                               (append
-                                                '(:height 0.9)
-                                                `(:v-adjust ,all-the-icons-dired-v-adjust)
-                                                (when all-the-icons-dired-monochrome
-                                                  `(:face ,(face-at-point))))))))
-                      (if (member file '("." ".."))
-                          (all-the-icons-dired--add-overlay (point) "   \t")
-                        (all-the-icons-dired--add-overlay (point) (concat " " icon "\t"))))))
-                (forward-line 1)))
-          (message "Not display icons because of too many items.")))
-      (advice-add #'all-the-icons-dired--refresh :override #'my-all-the-icons-dired--refresh)))
+      (defun my-all-the-icons-dired--icon (file)
+        "Return the icon for FILE."
+        (if (file-directory-p file)
+            (all-the-icons-icon-for-dir file
+                                        :height 0.9
+                                        :face 'all-the-icons-dired-dir-face
+                                        :v-adjust all-the-icons-dired-v-adjust)
+          (apply 'all-the-icons-icon-for-file file
+                 (append
+                  '(:height 0.9)
+                  `(:v-adjust ,all-the-icons-dired-v-adjust)
+                  (when all-the-icons-dired-monochrome
+                    `(:face ,(face-at-point)))))))
+      (advice-add #'all-the-icons-dired--icon :override #'my-all-the-icons-dired--icon)))
 
   ;; Extra Dired functionality
   (use-package dired-aux :ensure nil)
   (use-package dired-x
     :ensure nil
-    :demand
+    :demand t
     :config
     (let ((cmd (cond (sys/mac-x-p "open")
                      (sys/linux-x-p "xdg-open")
