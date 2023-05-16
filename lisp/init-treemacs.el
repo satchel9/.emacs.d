@@ -1,6 +1,6 @@
 ;; init-treemacs.el --- Initialize treemacs.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2018-2022 Vincent Zhang
+;; Copyright (C) 2018-2023 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -67,7 +67,7 @@
      (treemacs-git-mode 'simple)))
 
   (use-package treemacs-nerd-icons
-    :demand
+    :demand t
     :custom-face
     (treemacs-nerd-icons-root-face ((t (:inherit nerd-icons-green :height 1.3))))
     (treemacs-nerd-icons-file-face ((t (:inherit nerd-icons-dsilver))))

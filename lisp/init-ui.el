@@ -1,6 +1,6 @@
 ;; init-ui.el --- Better lookings and appearances.	-*- lexical-binding: t -*-
 
-;; Copyright (C) 2006-2022 Vincent Zhang
+;; Copyright (C) 2006-2023 Vincent Zhang
 
 ;; Author: Vincent Zhang <seagle0128@gmail.com>
 ;; URL: https://github.com/seagle0128/.emacs.d
@@ -263,7 +263,7 @@
   :hook (doom-modeline-mode . minions-mode))
 
 ;; Icons
-(use-package nerd-icons)
+(use-package nerd-icons :demand t)
 
 ;; Show line numbers
 (use-package display-line-numbers
