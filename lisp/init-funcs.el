@@ -29,14 +29,22 @@
 ;;
 
 ;;; Code:
+
 (require 'cl-lib)
 
 ;; Suppress warnings
-(defvar circadian-themes)
+(eval-when-compile
+  (require 'init-const)
+  (require 'init-custom))
+
 (defvar socks-noproxy)
 (defvar socks-server)
 
+(declare-function browse-url-interactive-arg 'browse-url)
 (declare-function chart-bar-quickie 'chart)
+(declare-function circadian-activate-latest-theme 'xwidget)
+(declare-function nerd-icons-install-fonts 'nerd-icons)
+(declare-function xwidget-buffer 'xwidget)
 (declare-function xwidget-webkit-current-session 'xwidget)
 
 

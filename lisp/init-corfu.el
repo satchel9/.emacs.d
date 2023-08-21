@@ -32,13 +32,13 @@
 
 (use-package corfu
   :custom
-  (corfu-auto t)                 ;; Enable auto completion
-  (corfu-auto-prefix 2)          ;; Trigger auto completion with 2 chars
-  (corfu-quit-at-boundary t)     ;; Automatically quit at word boundary
-  (corfu-quit-no-match t)        ;; Automatically quit if there is no match
-  (corfu-preview-current nil)    ;; Disable current candidate preview
-  (corfu-preselect 'prompt)      ;; Preselect the prompt
-  (corfu-scroll-margin 5)        ;; Use scroll margin
+  (corfu-auto t)
+  (corfu-auto-prefix 2)
+  (corfu-preview-current nil)
+  (corfu-auto-delay 0.1)
+  (corfu-popupinfo-delay '(0.2 . 0.1))
+  :custom-face
+  (corfu-border ((t (:inherit region :background unspecified))))
   :bind ("M-/" . completion-at-point)
   :hook ((after-init . global-corfu-mode)
          (global-corfu-mode . corfu-popupinfo-mode)))
@@ -50,6 +50,7 @@
 (use-package kind-icon
   :when (icons-displayable-p)
   :after corfu
+  :functions nerd-icons-codicon
   :init
   (defconst corfu-kind-icon-mapping
     `((array . ,(nerd-icons-codicon "nf-cod-symbol_array" :face 'font-lock-type-face))
@@ -125,10 +126,7 @@ function to the relevant margin-formatters list."
   (add-to-list 'completion-at-point-functions #'cape-file)
   (add-to-list 'completion-at-point-functions #'cape-elisp-block)
   (add-to-list 'completion-at-point-functions #'cape-keyword)
-  (add-to-list 'completion-at-point-functions #'cape-abbrev)
-  :config
-  (require 'cape-yasnippet)
-  (add-to-list 'completion-at-point-functions #'cape-yasnippet))
+  (add-to-list 'completion-at-point-functions #'cape-abbrev))
 
 (provide 'init-corfu)
 

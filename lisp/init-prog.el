@@ -30,6 +30,10 @@
 
 ;;; Code:
 
+(eval-when-compile
+  (require 'init-const)
+  (require 'init-custom))
+
 ;; Prettify Symbols
 ;; e.g. display “lambda” as “λ”
 (use-package prog-mode
@@ -56,8 +60,11 @@
       :custom-face
       (eldoc-box-border ((t (:inherit posframe-border :background unspecified))))
       (eldoc-box-body ((t (:inherit tooltip))))
-      :hook ((emacs-lisp-mode . eldoc-box-hover-at-point-mode)
-             (eglot-managed-mode . eldoc-box-hover-at-point-mode)))))
+      :hook ((eglot-managed-mode . eldoc-box-hover-at-point-mode))
+      :config
+      ;; Prettify `eldoc-box' frame
+      (setf (alist-get 'left-fringe eldoc-box-frame-parameters) 8
+            (alist-get 'right-fringe eldoc-box-frame-parameters) 8))))
 
 ;; Search tool
 (use-package grep
