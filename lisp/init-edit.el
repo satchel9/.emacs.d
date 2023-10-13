@@ -277,7 +277,7 @@
          :map mc/keymap
          ("C-|" . mc/vertical-align-with-space))
   :pretty-hydra
-  ((:title (pretty-hydra-title "Multiple Cursors" 'mdicon "nf-md-border_all")
+  ((:title (pretty-hydra-title "Multiple Cursors" 'mdicon "nf-md-cursor_move")
     :color amaranth :quit-key ("q" "C-g"))
    ("Up"
 	(("p" mc/mark-previous-like-this "prev")
@@ -330,10 +330,8 @@
 
 ;; Move to the beginning/end of line or code
 (use-package mwim
-  :bind (("C-a" . mwim-beginning-of-code-or-line)
-         ("C-e" . mwim-end-of-code-or-line)
-         ("<home>" . mwim-beginning-of-line-or-code)
-         ("<end>" . mwim-end-of-line-or-code)))
+  :bind (([remap move-beginning-of-line] . mwim-beginning)
+         ([remap move-end-of-line] . mwim-end)))
 
 ;; Treat undo history as a tree
 (if emacs/>=28p
